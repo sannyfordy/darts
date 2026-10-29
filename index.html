@@ -169,6 +169,10 @@ svg.chart text{fill:var(--muted);font-family:var(--f-body);font-size:13px}
 .boardwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:center}
 @media (min-width:760px){.boardwrap{grid-template-columns:minmax(0,340px) minmax(0,1fr)}}
 svg.board{width:100%;max-width:340px;height:auto;display:block;margin:0 auto}
+svg.board [data-act]{cursor:pointer}
+.posgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
+@media (min-width:1000px){.posgrid{grid-template-columns:minmax(0,340px) minmax(0,1fr)}}
+.hits td,.hits th{padding:5px 7px}
 svg.board text{fill:var(--muted);font-family:var(--f-display);font-weight:800;font-size:17px}
 .kv{display:grid;grid-template-columns:1fr auto;gap:4px 14px;font-size:14px}
 .kv span:nth-child(even){font-weight:700;text-align:right}
@@ -895,13 +899,22 @@ function statsFor(pid, ms) {
   const K = { m: 0, mw: 0, legs: 0, lw: 0, taken: 0, toK: [], recs: [] };
   const A = { seg: {}, n: 0, miss: 0, mult: [0, 0, 0, 0], sc: { n: 0, T20: 0, S20: 0, b1: 0, b5: 0, other: 0 }, dbl: {}, dA: 0, dH: 0 };
   const opp = {};
-  const acc = (d) => {
+  A.pos = { all: { seg: {}, n: 0 }, v1: { seg: {}, n: 0 }, v2: { seg: {}, n: 0 }, v3: { seg: {}, n: 0 }, l1: { seg: {}, n: 0 } };
+  const put = (o, k) => {
+    o.n++;
+    o.seg[k] = (o.seg[k] || 0) + 1;
+  };
+  const acc = (d, j, firstOfLeg) => {
     A.n++;
     const k = dkey(d);
     A.seg[k] = (A.seg[k] || 0) + 1;
     if (k === "M") A.miss++;
-    else A.mult[d[0] === 25 ? d[1] : d[1]]++;
+    else A.mult[d[1]]++;
+    put(A.pos.all, k);
+    if (j < 3) put(A.pos["v" + (j + 1)], k);
+    if (firstOfLeg) put(A.pos.l1, k);
   };
+  const accVisit = (v, k) => v.darts.forEach((d, j) => acc(d, j, k === 0 && j === 0));
   for (const m of ms) {
     if (!m.players.includes(pid)) continue;
     const done = m.legs.filter((l) => l.winner);
@@ -968,8 +981,8 @@ function statsFor(pid, ms) {
           }
           if (v.darts) {
             let r = v.rem;
+            accVisit(v, k);
             for (const d of v.darts) {
-              acc(d);
               if (r > 170) {
                 const c = A.sc;
                 c.n++;
@@ -996,7 +1009,7 @@ function statsFor(pid, ms) {
         mp += lp;
         md += ld;
       } else if (m.game === "cricket") {
-        vs.forEach((v) => {
+        vs.forEach((v, k) => {
           C.marks += v.marks;
           C.d += v.n;
           lp += v.marks;
@@ -1005,15 +1018,15 @@ function statsFor(pid, ms) {
           if (v.marks >= 5) C.r5++;
           if (v.marks >= 7) C.r7++;
           if (v.marks >= 9) C.r9++;
-          v.darts.forEach(acc);
+          accVisit(v, k);
         });
       } else {
         let cnt = 0, toK = null;
-        vs.forEach((v) => {
+        vs.forEach((v, k) => {
           K.taken += v.taken || 0;
           lp += v.taken || 0;
           ld += v.n;
-          v.darts.forEach(acc);
+          accVisit(v, k);
           if (toK == null && v.bi >= 0 && v.bi != null) toK = cnt + v.bi + 1;
           cnt += v.n;
         });
@@ -1106,11 +1119,13 @@ function wedge(r1, r2, a1, a2) {
   const [x1, y1] = p(r2, a1), [x2, y2] = p(r2, a2), [x3, y3] = p(r1, a2), [x4, y4] = p(r1, a1);
   return "M".concat(x1, " ").concat(y1, "A").concat(r2, " ").concat(r2, " 0 0 1 ").concat(x2, " ").concat(y2, "L").concat(x3, " ").concat(y3, "A").concat(r1, " ").concat(r1, " 0 0 0 ").concat(x4, " ").concat(y4, "Z");
 }
+const segName = (k) => k === "DB" ? "Bull" : k === "SB" ? "Outer bull" : k === "M" ? "Off the board" : { S: "Single ", D: "Double ", T: "Treble " }[k[0]] + k.slice(1);
 function boardSVG(seg, total) {
   const vals = Object.entries(seg).filter(([k]) => k !== "M").map(([, v]) => v), max = Math.max(1, ...vals);
+  const tap = (k, c) => 'data-act="seg" data-k="'.concat(k, '" data-c="').concat(c, '" data-n="').concat(total, '"');
   const reg = (d, k, base) => {
     const c = seg[k] || 0, o = c ? (0.12 + 0.88 * Math.pow(c / max, 0.7)).toFixed(2) : 0;
-    return '<path d="'.concat(d, '" fill="').concat(base, '" stroke="var(--bg)" stroke-width=".8"/>').concat(c ? '<path d="'.concat(d, '" fill="var(--heat)" fill-opacity="').concat(o, '"><title>').concat(k.replace("S", "Single ").replace("D", "Double ").replace("T", "Treble "), ": ").concat(c, " (").concat(pct(c, total), ")</title></path>") : "");
+    return '<path d="'.concat(d, '" fill="').concat(base, '" stroke="var(--bg)" stroke-width=".8" ').concat(tap(k, c), "/>").concat(c ? '<path d="'.concat(d, '" fill="var(--heat)" fill-opacity="').concat(o, '" ').concat(tap(k, c), "><title>").concat(segName(k), ": ").concat(c, " (").concat(pct(c, total), ")</title></path>") : "");
   };
   let s = "";
   ORDER.forEach((n, i) => {
@@ -1121,7 +1136,7 @@ function boardSVG(seg, total) {
   });
   const circ = (r, k) => {
     const c = seg[k] || 0, o = c ? (0.12 + 0.88 * Math.pow(c / max, 0.7)).toFixed(2) : 0;
-    return '<circle r="'.concat(r, '" fill="var(--surface-2)" stroke="var(--bg)" stroke-width=".8"/>').concat(c ? '<circle r="'.concat(r, '" fill="var(--heat)" fill-opacity="').concat(o, '"><title>').concat(k === "DB" ? "Bull" : "Outer bull", ": ").concat(c, " (").concat(pct(c, total), ")</title></circle>") : "");
+    return '<circle r="'.concat(r, '" fill="var(--surface-2)" stroke="var(--bg)" stroke-width=".8" ').concat(tap(k, c), "/>").concat(c ? '<circle r="'.concat(r, '" fill="var(--heat)" fill-opacity="').concat(o, '" ').concat(tap(k, c), "><title>").concat(segName(k), ": ").concat(c, " (").concat(pct(c, total), ")</title></circle>") : "");
   };
   s += circ(15.9, "SB") + circ(6.35, "DB");
   return '<svg class="board" viewBox="-205 -205 410 410" role="img" aria-label="Heatmap of where darts landed">'.concat(s, "</svg>");
@@ -1229,8 +1244,21 @@ const tile = (l, v, s = "") => '<div class="tile"><div class="eyebrow">'.concat(
 function accuracySection(A, scoring) {
   if (!A.n) return '<div class="panel"><h3>Accuracy</h3><p class="note">No dart-by-dart data in this selection. Switch score entry to <b>Dart</b> during a match to record where each dart lands.</p></div>';
   const sc = A.sc, dbls = Object.entries(A.dbl).sort((a, b) => b[1].a - a[1].a);
-  const hits = A.n - A.miss;
-  return '<div class="panel stack"><h3>Accuracy</h3><div class="boardwrap">'.concat(boardSVG(A.seg, A.n), '\n  <div class="stack">\n    <div class="kv"><span>Darts recorded</span><span>').concat(A.n, "</span><span>Trebles</span><span>").concat(pct(A.mult[3], A.n), "</span><span>Doubles (incl. bull)</span><span>").concat(pct(A.mult[2], A.n), "</span><span>Off the board</span><span>").concat(pct(A.miss, A.n), "</span></div>\n    ").concat(scoring && sc.n ? '<div><div class="eyebrow" style="margin-bottom:6px">Scoring darts (above 170)</div><div class="kv"><span>Treble 20</span><span>'.concat(pct(sc.T20, sc.n), "</span><span>20 bed, single or double</span><span>").concat(pct(sc.S20, sc.n), "</span><span>Wide left into the 5</span><span>").concat(pct(sc.b5, sc.n), "</span><span>Wide right into the 1</span><span>").concat(pct(sc.b1, sc.n), "</span><span>Anywhere else</span><span>").concat(pct(sc.other, sc.n), '</span></div><p class="note">Out of ').concat(sc.n, " darts thrown when no finish was on. Misses to the 5 vs the 1 show which way you pull.</p></div>") : "", "\n  </div></div>\n  ").concat(scoring ? dbls.length ? '<div><div class="eyebrow" style="margin-bottom:6px">Doubles when on a finish \xB7 '.concat(A.dH, "/").concat(A.dA, " hit (").concat(pct(A.dH, A.dA), ')</div><div class="tscroll"><table><thead><tr><th>Double</th><th class="num">Darts at it</th><th class="num">Hit</th><th class="num">Rate</th><th></th></tr></thead><tbody>').concat(dbls.map(([k, o]) => "<tr><td>".concat(k === "DB" ? "Bull" : k, '</td><td class="num">').concat(o.a, '</td><td class="num">').concat(o.h, '</td><td class="num">').concat(pct(o.h, o.a), '</td><td style="width:35%"><div class="meter"><b style="width:').concat(o.a ? o.h / o.a * 100 : 0, '%"></b></div></td></tr>')).join(""), "</tbody></table></div></div>") : '<p class="note">No darts thrown at a finishing double yet.</p>' : "", "\n  </div>");
+  const POS = [["all", "All darts"], ["v1", "1st dart of visit"], ["v2", "2nd dart"], ["v3", "3rd dart"], ["l1", "1st dart of leg"]];
+  const pk = POS.some((p) => p[0] === ui.sf.dpos) ? ui.sf.dpos : "all", G = A.pos[pk], pl = POS.find((p) => p[0] === pk)[1];
+  return '<div class="panel stack"><h3>Accuracy</h3>\n  <div class="opts">'.concat(POS.map(([v, l]) => '<button class="opt'.concat(pk === v ? " on" : "", '" data-act="dpos" data-v="').concat(v, '">').concat(l, "</button>")).join(""), '</div>\n  <div class="posgrid">').concat(boardSVG(G.seg, G.n), '\n  <div class="stack">').concat(hitsTable(G, pl), '</div></div>\n  <div class="boardwrap" style="align-items:start"><div class="stack">\n    <div class="eyebrow">All darts</div>\n    <div class="kv"><span>Darts recorded</span><span>').concat(A.n, "</span><span>Trebles</span><span>").concat(pct(A.mult[3], A.n), "</span><span>Doubles (incl. bull)</span><span>").concat(pct(A.mult[2], A.n), "</span><span>Off the board</span><span>").concat(pct(A.miss, A.n), "</span></div>\n    ").concat(scoring && sc.n ? '<div><div class="eyebrow" style="margin-bottom:6px">Scoring darts (above 170)</div><div class="kv"><span>Treble 20</span><span>'.concat(pct(sc.T20, sc.n), "</span><span>20 bed, single or double</span><span>").concat(pct(sc.S20, sc.n), "</span><span>Wide left into the 5</span><span>").concat(pct(sc.b5, sc.n), "</span><span>Wide right into the 1</span><span>").concat(pct(sc.b1, sc.n), "</span><span>Anywhere else</span><span>").concat(pct(sc.other, sc.n), '</span></div><p class="note">Out of ').concat(sc.n, " darts thrown when no finish was on. Misses to the 5 vs the 1 show which way you pull.</p></div>") : "", "\n  </div></div>\n  ").concat(scoring ? dbls.length ? '<div><div class="eyebrow" style="margin-bottom:6px">Doubles when on a finish \xB7 '.concat(A.dH, "/").concat(A.dA, " hit (").concat(pct(A.dH, A.dA), ')</div><div class="tscroll"><table><thead><tr><th>Double</th><th class="num">Darts at it</th><th class="num">Hit</th><th class="num">Rate</th><th></th></tr></thead><tbody>').concat(dbls.map(([k, o]) => "<tr><td>".concat(k === "DB" ? "Bull" : k, '</td><td class="num">').concat(o.a, '</td><td class="num">').concat(o.h, '</td><td class="num">').concat(pct(o.h, o.a), '</td><td style="width:35%"><div class="meter"><b style="width:').concat(o.a ? o.h / o.a * 100 : 0, '%"></b></div></td></tr>')).join(""), "</tbody></table></div></div>") : '<p class="note">No darts thrown at a finishing double yet.</p>' : "", "\n  </div>");
+}
+function hitsTable(G, label) {
+  if (!G.n) return '<p class="note">No darts recorded for '.concat(label.toLowerCase(), " yet.</p>");
+  const s = G.seg, rows = Array.from({ length: 20 }, (_, i) => {
+    const n = i + 1, S = s["S" + n] || 0, D = s["D" + n] || 0, T = s["T" + n] || 0;
+    return { l: String(n), S, D, T, tot: S + D + T };
+  });
+  rows.push({ l: "Bull", S: s.SB || 0, D: s.DB || 0, T: null, tot: (s.SB || 0) + (s.DB || 0) });
+  const byNum = ui.sf.hsort === "num";
+  if (!byNum) rows.sort((a, b) => b.tot - a.tot);
+  const max = Math.max(1, ...rows.map((r) => r.tot)), miss = s.M || 0;
+  return '<div class="row" style="justify-content:space-between"><div class="eyebrow">'.concat(label, " \xB7 ").concat(G.n, ' darts</div>\n    <div class="opts"><button class="opt').concat(byNum ? "" : " on", '" data-act="hsort" data-v="hits">Most hit</button><button class="opt').concat(byNum ? " on" : "", '" data-act="hsort" data-v="num">By number</button></div></div>\n  <div class="tscroll"><table class="hits"><thead><tr><th>Number</th><th class="num">Single</th><th class="num">Double</th><th class="num">Treble</th><th class="num">Total</th><th class="num">Share</th><th></th></tr></thead><tbody>\n  ').concat(rows.filter((r) => byNum || r.tot).map((r) => "<tr><td><b>".concat(r.l, '</b></td><td class="num">').concat(r.S || "\xB7", '</td><td class="num">').concat(r.D || "\xB7", '</td><td class="num">').concat(r.T == null ? "" : r.T || "\xB7", '</td><td class="num"><b>').concat(r.tot, '</b></td><td class="num">').concat(pct(r.tot, G.n), '</td><td style="width:22%"><div class="meter"><b style="width:').concat(r.tot / max * 100, '%;background:var(--heat)"></b></div></td></tr>')).join(""), "\n  ").concat(miss ? '<tr><td>Off the board</td><td></td><td></td><td></td><td class="num"><b>'.concat(miss, '</b></td><td class="num">').concat(pct(miss, G.n), "</td><td></td></tr>") : "", '\n  </tbody></table></div>\n  <p class="note">Tap any part of the board to see its count.</p>');
 }
 function statsX01(S, pname) {
   var _a2;
@@ -1603,6 +1631,17 @@ const ACTS = {
     toast("Restored. ".concat(Object.keys(Store.matches).length - before, " matches added, ").concat(Object.keys(j.matches).length, " in the backup."));
     render();
   },
+  dpos: (d) => {
+    ui.sf.dpos = d.v;
+    remember();
+    render();
+  },
+  hsort: (d) => {
+    ui.sf.hsort = d.v;
+    remember();
+    render();
+  },
+  seg: (d) => toast("".concat(segName(d.k), ": ").concat(d.c, " of ").concat(d.n, " darts (").concat(pct(+d.c, +d.n), ")")),
   stab: (d) => {
     ui.sf.tab = d.v;
     remember();
@@ -1649,13 +1688,17 @@ const ACTS = {
     render();
   }
 };
+const dataOf = (b) => b.dataset && b.dataset.act ? b.dataset : Array.prototype.reduce.call(b.attributes, (o, a) => {
+  if (a.name.indexOf("data-") === 0) o[a.name.slice(5)] = a.value;
+  return o;
+}, {});
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-act]");
   if (!b || b.disabled) return;
-  const f = ACTS[b.dataset.act];
+  const d = dataOf(b), f = ACTS[d.act];
   if (f) {
     e.preventDefault();
-    f(b.dataset, b);
+    f(d, b);
   }
 });
 document.addEventListener("change", (e) => {
