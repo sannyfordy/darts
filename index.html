@@ -166,6 +166,10 @@ svg.chart text{fill:var(--muted);font-family:var(--f-body);font-size:13px}
 .legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
 .legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px;background:var(--ink)}
 .legend i.a{background:var(--red);height:4px}
+.legend i.t{background:var(--hi);height:8px}
+.stk{width:100%;display:flex;flex-direction:column;justify-content:flex-end}
+.stk .bf{border-radius:0}.stk .bf:first-child{border-radius:4px 4px 0 0}
+.bf.t{background:var(--hi)}
 .boardwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:center}
 @media (min-width:760px){.boardwrap{grid-template-columns:minmax(0,340px) minmax(0,1fr)}}
 svg.board{width:100%;max-width:340px;height:auto;display:block;margin:0 auto}
@@ -1435,25 +1439,164 @@ function viewStats() {
     sample = true;
   }
   const f = ui.sf, count = {};
+  if (f.game === "training") {
+    f.game = "x01";
+    f.src = "training";
+  }
+  const src = ["match", "training", "both"].indexOf(f.src) >= 0 ? f.src : "match";
   ms.forEach((m) => m.players.forEach((p) => count[p] = (count[p] || 0) + 1));
   const pids = Object.keys(count).sort((a, b) => count[b] - count[a]);
   if (!pids.includes(f.pid)) f.pid = pids[0];
   const since = f.period === "all" ? 0 : Date.now() - Number(f.period) * 864e5;
   const fm = ms.filter((m) => m.game === f.game && m.startedAt >= since && (f.game !== "x01" || f.start === "any" || m.settings.start == f.start));
   const S = statsFor(f.pid, fm), pname = nameOf(f.pid, ms.find((m) => m.players.includes(f.pid)));
-  const tab = f.game === "training" ? "player" : f.tab || "player";
+  const tab = src === "match" ? f.tab || "player" : "player";
   const opps = pids.filter((p) => p !== f.pid && ms.some((m) => m.players.includes(p) && m.players.includes(f.pid)));
   if (!opps.includes(f.vs)) f.vs = opps[0] || null;
   const pOpt = (k, list, cur) => list.map((p) => '<option value="'.concat(p, '"').concat(p === cur ? " selected" : "", ">").concat(esc(nameOf(p, ms.find((m) => m.players.includes(p)))), "</option>")).join("");
   let h = '<div class="stack">';
   if (sample) h += '<div class="banner"><b>Sample data.</b> These charts come from simulated players so you can see what the stats look like. Play a match and your own numbers replace them.</div>';
-  if (f.game !== "training") h += '<div class="opts">'.concat([["player", "Player"], ["h2h", "Head to head"], ["rivals", "Rivalries"]].map(([v, l]) => '<button class="opt'.concat(tab === v ? " on" : "", '" data-act="stab" data-v="').concat(v, '">').concat(l, "</button>")).join(""), "</div>");
-  h += '<div class="filters">\n    '.concat(tab !== "rivals" ? '<label class="field"><span class="eyebrow">Player</span><select data-change="sf" data-k="pid" id="sf-pid">'.concat(pOpt("pid", pids, f.pid), "</select></label>") : "", "\n    ").concat(tab === "h2h" ? '<label class="field"><span class="eyebrow">Against</span><select data-change="sf" data-k="vs" id="sf-vs">'.concat(opps.length ? pOpt("vs", opps, f.vs) : "<option>No opponents yet</option>", "</select></label>") : "", '\n    <label class="field"><span class="eyebrow">Game</span><select data-change="sf" data-k="game" id="sf-game">').concat([["x01", "X01"], ["cricket", "Cricket"], ["killer", "Killer"], ["training", "Training"]].map(([v, l]) => '<option value="'.concat(v, '"').concat(v === f.game ? " selected" : "", ">").concat(l, "</option>")).join(""), "</select></label>\n    ").concat(f.game === "x01" ? '<label class="field"><span class="eyebrow">Start</span><select data-change="sf" data-k="start" id="sf-start">'.concat(["any", "301", "501", "701"].map((v) => '<option value="'.concat(v, '"').concat(String(f.start) === v ? " selected" : "", ">").concat(v === "any" ? "Any" : v, "</option>")).join(""), "</select></label>") : "", '\n    <label class="field"><span class="eyebrow">Period</span><select data-change="sf" data-k="period" id="sf-period">').concat([["7", "Last 7 days"], ["30", "Last 30 days"], ["90", "Last 90 days"], ["all", "All time"]].map(([v, l]) => '<option value="'.concat(v, '"').concat(v === f.period ? " selected" : "", ">").concat(l, "</option>")).join(""), "</select></label>\n  </div>");
+  h += '<div class="row" style="justify-content:space-between"><div class="opts">'.concat([["match", "Matches"], ["training", "Training"], ["both", "Combined"]].map(([v, l]) => '<button class="opt'.concat(src === v ? " on" : "", '" data-act="ssrc" data-v="').concat(v, '">').concat(l, "</button>")).join(""), "</div>\n    ").concat(src === "match" ? '<div class="opts">'.concat([["player", "Player"], ["h2h", "Head to head"], ["rivals", "Rivalries"]].map(([v, l]) => '<button class="opt'.concat(tab === v ? " on" : "", '" data-act="stab" data-v="').concat(v, '">').concat(l, "</button>")).join(""), "</div>") : "", "</div>");
+  h += '<div class="filters">\n    '.concat(tab !== "rivals" ? '<label class="field"><span class="eyebrow">Player</span><select data-change="sf" data-k="pid" id="sf-pid">'.concat(pOpt("pid", pids, f.pid), "</select></label>") : "", "\n    ").concat(tab === "h2h" ? '<label class="field"><span class="eyebrow">Against</span><select data-change="sf" data-k="vs" id="sf-vs">'.concat(opps.length ? pOpt("vs", opps, f.vs) : "<option>No opponents yet</option>", "</select></label>") : "", "\n    ").concat(src === "match" ? '<label class="field"><span class="eyebrow">Game</span><select data-change="sf" data-k="game" id="sf-game">'.concat([["x01", "X01"], ["cricket", "Cricket"], ["killer", "Killer"]].map(([v, l]) => '<option value="'.concat(v, '"').concat(v === f.game ? " selected" : "", ">").concat(l, "</option>")).join(""), "</select></label>") : "", "\n    ").concat(src === "match" && f.game === "x01" ? '<label class="field"><span class="eyebrow">Start</span><select data-change="sf" data-k="start" id="sf-start">'.concat(["any", "301", "501", "701"].map((v) => '<option value="'.concat(v, '"').concat(String(f.start) === v ? " selected" : "", ">").concat(v === "any" ? "Any" : v, "</option>")).join(""), "</select></label>") : "", '\n    <label class="field"><span class="eyebrow">Period</span><select data-change="sf" data-k="period" id="sf-period">').concat([["7", "Last 7 days"], ["30", "Last 30 days"], ["90", "Last 90 days"], ["all", "All time"]].map(([v, l]) => '<option value="'.concat(v, '"').concat(v === f.period ? " selected" : "", ">").concat(l, "</option>")).join(""), "</select></label>\n  </div>");
   if (tab === "h2h") h += (f.vs ? compareSection(f.pid, f.vs, fm, f.game) : '<div class="panel"><p class="note">'.concat(esc(pname), " hasn't played anyone yet.</p></div>")) + h2hSection(S.opp, f.game);
   else if (tab === "rivals") h += rivalsSection(fm, f.game);
-  else if (f.game === "training") h += sample ? '<div class="panel"><p class="note">No training sessions yet. Choose Training on the Play page to start a drill.</p></div>' : statsTraining(f.pid, fm);
+  else if (src === "training") h += sample ? '<div class="panel"><p class="note">No training sessions yet. Choose Training on the Play page to start a drill.</p></div>' : statsTraining(f.pid, ms.filter((m) => m.game === "training" && m.startedAt >= since));
+  else if (src === "both") h += statsCombined(f.pid, ms.filter((m) => m.startedAt >= since));
   else h += f.game === "x01" ? statsX01(S, pname) : f.game === "cricket" ? statsCricket(S) : statsKiller(S);
   return h + "</div>";
+}
+function trAims(m) {
+  const S = m.settings, vs = m.legs[0].visits, out = [];
+  if (S.drill === "rtc") {
+    const T = rtcTargets(S);
+    let i = 0;
+    vs.forEach((v) => v.darts.forEach((d) => {
+      if (i >= T.length) return;
+      const t = T[i];
+      out.push({ d, aim: S.ring === "any" ? null : t === 25 ? "DB" : (S.ring === "double" ? "D" : "T") + t });
+      if (rtcHit(S, t, d)) i++;
+    }));
+  } else if (S.drill === "bobs") {
+    vs.forEach((v, r) => {
+      const t = BOBS[r];
+      v.darts.forEach((d) => out.push({ d, aim: t === 25 ? "DB" : "D" + t }));
+    });
+  } else if (S.drill === "checkout") {
+    const tg = S.targets;
+    let a = 0, vis = 0, rem = tg[0];
+    vs.forEach((v) => {
+      let r = rem;
+      for (const d of v.darts) {
+        out.push({ d, aim: r === 50 ? "DB" : r <= 40 && r % 2 === 0 ? "D" + r / 2 : null });
+        const nr = r - dv(d);
+        if (nr <= 1) break;
+        r = nr;
+      }
+      const res = x01Darts(rem, true, v.darts, { doubleOut: true });
+      vis++;
+      if (res.co || vis >= S.visits) {
+        a++;
+        vis = 0;
+        rem = tg[a];
+      } else rem = res.rem;
+    });
+  } else vs.forEach((v) => v.darts.forEach((d) => out.push({ d, aim: S.target === "B" ? null : S.target })));
+  return out;
+}
+const weekStart = (t) => {
+  const d = new Date(t);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+  return d.getTime();
+};
+function stackBars(items) {
+  const max = Math.max(1, ...items.map((i) => i.a + i.b));
+  return '<div class="bars">'.concat(items.map((it) => {
+    const tot = it.a + it.b;
+    return '<div class="bar"><div class="bv">'.concat(tot || "", '</div><div class="bt"><div class="stk" style="height:').concat((tot / max * 100).toFixed(1), '%">').concat(it.b ? '<div class="bf t" style="height:'.concat((it.b / tot * 100).toFixed(1), '%"></div>') : "").concat(it.a ? '<div class="bf" style="height:'.concat((it.a / tot * 100).toFixed(1), '%"></div>') : "", '</div></div><div class="bl">').concat(it.l, "</div></div>");
+  }).join(""), '</div>\n  <div class="legend"><span><i></i>Matches</span><span><i class="t"></i>Training</span></div>');
+}
+function statsCombined(pid, ms) {
+  const mine = ms.filter((m) => m.players.includes(pid)), A = newAcc(), aims = {}, weeks = {};
+  let dM = 0, dT = 0, nM = 0, nT = 0;
+  const days = /* @__PURE__ */ new Set();
+  const aim = (key, src, hit) => {
+    const o = aims[key] || (aims[key] = { m: { a: 0, h: 0 }, t: { a: 0, h: 0 } });
+    o[src].a++;
+    if (hit) o[src].h++;
+  };
+  const vol = (t, src, n) => {
+    const w = weekStart(t), o = weeks[w] || (weeks[w] = { a: 0, b: 0 });
+    o[src] += n;
+    days.add(dayKey(t));
+  };
+  mine.forEach((m) => {
+    if (m.game === "training") {
+      if (m.status !== "done") return;
+      nT++;
+      m.legs[0].visits.forEach((v, k) => {
+        dT += v.n;
+        vol(v.t || m.startedAt, "b", v.n);
+        v.darts.forEach((d, j) => accAdd(A, d, j, k === 0 && j === 0));
+      });
+      trAims(m).forEach((x) => {
+        if (x.aim) aim(x.aim, "t", dkey(x.d) === x.aim);
+      });
+      return;
+    }
+    let any = false;
+    m.legs.filter((l) => l.winner).forEach((l) => l.visits.filter((v) => v.p === pid).forEach((v, k) => {
+      any = true;
+      dM += v.n;
+      vol(v.t || m.startedAt, "a", v.n);
+      if (!v.darts) return;
+      v.darts.forEach((d, j) => accAdd(A, d, j, k === 0 && j === 0));
+      if (m.game !== "x01") return;
+      let r = v.rem;
+      v.darts.forEach((d) => {
+        const t = m.settings.doubleOut && (r === 50 || r <= 40 && r % 2 === 0) ? r === 50 ? "DB" : "D" + r / 2 : r > 170 ? "T20" : null;
+        if (t) aim(t, "m", dkey(d) === t);
+        r -= dv(d);
+      });
+    }));
+    if (any) nM++;
+  });
+  if (!dM && !dT) return '<div class="panel"><p class="note">Nothing recorded for this player in this period yet.</p></div>';
+  const wk = Object.keys(weeks).map(Number).sort((a, b) => a - b), list = [];
+  if (wk.length) {
+    let w = Math.max(wk[0], weekStart(Date.now()) - 11 * 7 * 864e5);
+    const end = weekStart(Date.now());
+    while (w <= end) {
+      const o = weeks[w] || { a: 0, b: 0 };
+      list.push({ l: fmtDate(w), a: o.a, b: o.b });
+      const d = new Date(w);
+      d.setDate(d.getDate() + 7);
+      w = d.getTime();
+    }
+  }
+  const row = (k, o) => {
+    const a = o.m.a + o.t.a, h2 = o.m.h + o.t.h, cell = (x) => x.a ? "".concat(x.h, "/").concat(x.a, ' <span class="note">').concat(pct(x.h, x.a), "</span>") : '<span class="note">\u2013</span>';
+    return "<tr><td><b>".concat(k === "DB" ? "Bull" : k, '</b></td><td class="num">').concat(cell(o.m), '</td><td class="num">').concat(cell(o.t), '</td><td class="num"><b>').concat(pct(h2, a), '</b> <span class="note">').concat(a, '</span></td><td style="width:22%"><div class="meter"><b style="width:').concat(a ? h2 / a * 100 : 0, '%"></b></div></td></tr>');
+  };
+  const sum = (keys) => keys.reduce((s, k) => {
+    const o = aims[k];
+    s.m.a += o.m.a;
+    s.m.h += o.m.h;
+    s.t.a += o.t.a;
+    s.t.h += o.t.h;
+    return s;
+  }, { m: { a: 0, h: 0 }, t: { a: 0, h: 0 } });
+  const table = (keys, title, note) => {
+    if (!keys.length) return "";
+    keys.sort((x, y) => aims[y].m.a + aims[y].t.a - (aims[x].m.a + aims[x].t.a));
+    return '<div class="panel stack"><h3>'.concat(title, '</h3><div class="tscroll"><table><thead><tr><th>Target</th><th class="num">Matches</th><th class="num">Training</th><th class="num">Combined</th><th></th></tr></thead><tbody>\n    ').concat(keys.length > 1 ? row("All", sum(keys)).replace("<b>All</b>", "<b>All " + title.toLowerCase() + "</b>") : "").concat(keys.map((k) => row(k, aims[k])).join(""), '</tbody></table></div><p class="note">').concat(note, "</p></div>");
+  };
+  const dk = Object.keys(aims).filter((k) => k[0] === "D"), tk = Object.keys(aims).filter((k) => k[0] === "T");
+  let h = '<div class="tiles">'.concat(tile("Darts thrown", dM + dT, "".concat(dM, " in matches \xB7 ").concat(dT, " in training"))).concat(tile("Training share", pct(dT, dM + dT), "of all darts thrown")).concat(tile("Matches", nM)).concat(tile("Training sessions", nT)).concat(tile("Days at the board", days.size), "</div>");
+  h += '<div class="panel stack"><h3>Darts thrown each week</h3>'.concat(stackBars(list), "</div>");
+  h += table(dk, "Doubles", "Match darts count when you were on that double for a finish. Training darts count when the drill had you aiming at it: Bob\u2019s 27, Round the Clock on doubles, checkout practice and target practice.");
+  h += table(tk, "Trebles", "Match darts count as aimed at treble 20 whenever no finish was on. Training darts come from Round the Clock on trebles and target practice.");
+  return h + accuracySection(A, false);
 }
 function statsTraining(pid, fm) {
   const ms = fm.filter((m) => m.players[0] === pid && m.status === "done").map((m) => ({ m, st: trState(m) }));
@@ -1934,6 +2077,11 @@ const ACTS = {
     render();
   },
   seg: (d) => toast("".concat(segName(d.k), ": ").concat(d.c, " of ").concat(d.n, " darts (").concat(pct(+d.c, +d.n), ")")),
+  ssrc: (d) => {
+    ui.sf.src = d.v;
+    remember();
+    render();
+  },
   stab: (d) => {
     ui.sf.tab = d.v;
     remember();
