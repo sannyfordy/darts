@@ -1,0 +1,1643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Oche Ledger">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<title>Oche Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Barlow:wght@400;500;600;700&display=swap">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>
+/* Layout: sticky scoreboard header over one working column; live play splits board | pad on wide screens. Chalkboard slate in dark, scoresheet paper in light. */
+:root{
+  --bg:#eaede7; --surface:#fafbf7; --surface-2:#dfe4dc; --ink:#15201a; --muted:#5a675f; --line:#cbd3ca;
+  --red:#c22f29; --green:#18794a; --hi:#a8740a; --heat:#c22f29; --w1:#e6eae2; --w2:#d3d9d0;
+  --f-display:"Big Shoulders Display","Arial Narrow","Roboto Condensed",sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141b18; --surface:#1c2521; --surface-2:#26312c; --ink:#ebf0e8; --muted:#95a49b; --line:#33403a;
+  --red:#ee5d4e; --green:#41c27c; --hi:#f0c95a; --heat:#ff6c50; --w1:#222c28; --w2:#2c3832; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141b18; --surface:#1c2521; --surface-2:#26312c; --ink:#ebf0e8; --muted:#95a49b; --line:#33403a;
+  --red:#ee5d4e; --green:#41c27c; --hi:#f0c95a; --heat:#ff6c50; --w1:#222c28; --w2:#2c3832; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button,input,select{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;padding:0}
+button:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--hi);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topin{display:flex;align-items:center;gap:10px 16px;padding-block:10px;flex-wrap:wrap}
+.brand{font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:.03em;text-transform:uppercase;display:flex;gap:8px;align-items:center;line-height:1}
+.brand svg{width:24px;height:24px}
+.store{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.store i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.store.cloud i{background:var(--green)} .store.ro i{background:var(--hi)}
+nav{display:flex;gap:2px;margin-left:auto;background:var(--surface-2);border-radius:9px;padding:3px}
+nav button{padding:7px 14px;border-radius:7px;font-weight:600;font-size:14px;color:var(--muted)}
+nav button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+@media (max-width:560px){nav{margin-left:0;width:100%} nav button{flex:1;padding:8px 4px}}
+
+main{padding-block:18px 48px}
+h2{font-family:var(--f-display);font-weight:800;font-size:28px;text-transform:uppercase;letter-spacing:.02em;margin:0 0 10px;line-height:1.05;text-wrap:balance}
+h3{font-family:var(--f-display);font-weight:600;font-size:19px;text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px;line-height:1.1}
+.eyebrow{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.note{color:var(--muted);font-size:14px;margin:6px 0}
+.stack{display:flex;flex-direction:column;gap:18px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.banner{background:var(--surface-2);border-radius:10px;padding:10px 14px;font-size:14px}
+
+/* option controls */
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-weight:600}
+.opt.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.field{display:flex;flex-direction:column;gap:6px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600}
+.chip b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--bg);color:var(--ink);font-size:12px}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+input[type=text],select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.btn{padding:10px 16px;border-radius:9px;font-weight:700;border:1px solid var(--line);background:var(--surface)}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+.btn.danger{color:var(--red);border-color:var(--red)}
+.btn.big{padding:14px 26px;font-size:17px}
+.resume{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+
+/* live */
+.livebar{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.legline{font-family:var(--f-display);font-weight:800;font-size:24px;text-transform:uppercase}
+.livegrid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){.livegrid{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:start}}
+.pcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pcard.act{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pcard.act .pm,.pcard.act .eyebrow{color:var(--bg);opacity:.75}
+.pcard.out{opacity:.45}
+.ph{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.pn{font-weight:700;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.legs{font-family:var(--f-display);font-weight:800;font-size:18px}
+.rem{font-family:var(--f-display);font-weight:800;font-size:56px;line-height:.95;letter-spacing:-.01em}
+.pm{display:flex;gap:4px 10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.route{margin-top:6px;font-family:var(--f-display);font-weight:600;font-size:18px;letter-spacing:.04em;color:var(--hi)}
+.dchips{display:flex;gap:6px;margin-top:8px}
+.dchip{flex:1;min-width:0;height:30px;border-radius:6px;border:1px dashed currentColor;opacity:.5;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:17px}
+.dchip.on{opacity:1;border-style:solid}
+.log{margin-top:12px;display:flex;flex-direction:column;font-size:14px}
+.log div{display:flex;justify-content:space-between;gap:10px;padding:5px 2px;border-bottom:1px solid var(--line)}
+.log span:last-child{color:var(--muted)}
+
+.pad{display:flex;flex-direction:column;gap:8px}
+.key{background:var(--surface);border:1px solid var(--line);border-radius:9px;min-height:54px;font-family:var(--f-display);font-weight:800;font-size:24px;display:grid;place-items:center;position:relative;line-height:1;touch-action:manipulation}
+.key:active{background:var(--surface-2)}
+.key small{position:absolute;top:4px;right:6px;font-family:var(--f-body);font-size:10px;font-weight:700;color:var(--muted);max-width:60%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.key.dim{color:var(--muted);font-weight:600}
+.key.sm{font-size:17px;min-height:46px}
+.key.mul2.on{background:var(--green);color:#fff;border-color:var(--green)}
+.key.mul3.on{background:var(--red);color:#fff;border-color:var(--red)}
+.key.enter{background:var(--red);border-color:var(--red);color:#fff;font-size:20px}
+.mults,.extras,.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.nums{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.quick{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}
+.quick .key{font-size:17px;min-height:42px}
+@media (max-width:480px){.quick{grid-template-columns:repeat(5,1fr)}}
+.entry{display:flex;justify-content:space-between;align-items:baseline;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 14px}
+.ev{font-family:var(--f-display);font-weight:800;font-size:44px;line-height:1}
+.ea{color:var(--muted);font-size:14px}
+.askq{font-family:var(--f-display);font-weight:800;font-size:26px;text-transform:uppercase;margin:6px 0}
+.askrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+
+table{border-collapse:collapse;width:100%}
+th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--line)}
+th{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.num,th.num{text-align:right}
+.tscroll{overflow-x:auto}
+.cr td,.cr th{text-align:center}
+.cr tbody th{font-family:var(--f-display);font-weight:800;font-size:22px;color:var(--ink);letter-spacing:0}
+.cr td{font-family:var(--f-display);font-weight:800;font-size:26px;height:44px}
+.cr td.act,.cr th.act{background:var(--surface-2)}
+.cr tr.dead td,.cr tr.dead th{opacity:.35}
+.cr .pts{font-family:var(--f-display);font-size:30px;color:var(--ink);font-weight:800;letter-spacing:0}
+.lives{display:flex;gap:4px;margin-top:6px}
+.lives i{width:14px;height:14px;border-radius:50%;border:2px solid currentColor}
+.lives i.f{background:currentColor}
+.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:5px;background:var(--red);color:#fff}
+.badge.live{background:var(--hi);color:#15201a}
+.badge.muted{background:var(--surface-2);color:var(--muted)}
+
+/* stats */
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:0}
+.tile .v{font-family:var(--f-display);font-weight:800;font-size:38px;line-height:1;margin-top:4px}
+.tile .s{font-size:12.5px;color:var(--muted);margin-top:4px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+@media (min-width:820px){.grid2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.bands{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.band{border-top:3px solid var(--ink);padding-top:6px}
+.band:nth-child(3){border-color:var(--hi)} .band:nth-child(4){border-color:var(--red)}
+.band .v{font-family:var(--f-display);font-weight:800;font-size:32px;line-height:1}
+.band .s{font-size:12px;color:var(--muted)}
+.bars{display:flex;gap:6px;align-items:flex-end;overflow-x:auto;padding-bottom:2px}
+.bar{flex:1 0 34px;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:34px}
+.bt{height:130px;width:100%;display:flex;align-items:flex-end;background:linear-gradient(var(--line) 1px,transparent 1px) 0 0/100% 25%}
+.bf{width:100%;background:var(--ink);border-radius:4px 4px 0 0;min-height:2px}
+.bar.hl .bf{background:var(--red)}
+.bv{font-size:12px;font-weight:600}
+.bl{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.bn{font-size:10.5px;color:var(--muted)}
+svg.chart{width:100%;height:auto;display:block}
+svg.chart text{fill:var(--muted);font-family:var(--f-body);font-size:13px}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px;background:var(--ink)}
+.legend i.a{background:var(--red);height:4px}
+.boardwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:center}
+@media (min-width:760px){.boardwrap{grid-template-columns:minmax(0,340px) minmax(0,1fr)}}
+svg.board{width:100%;max-width:340px;height:auto;display:block;margin:0 auto}
+svg.board text{fill:var(--muted);font-family:var(--f-display);font-weight:800;font-size:17px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:4px 14px;font-size:14px}
+.kv span:nth-child(even){font-weight:700;text-align:right}
+.meter{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;min-width:60px}
+.meter b{display:block;height:100%;background:var(--green)}
+.hist{display:flex;flex-direction:column;gap:8px}
+.hrow{border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.hhead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;width:100%;text-align:left;flex-wrap:wrap}
+.hbody{padding:0 14px 14px;display:flex;flex-direction:column;gap:12px}
+.score{font-family:var(--f-display);font-weight:800;font-size:20px}
+.score b{color:var(--red)}
+tr.click,td.click{cursor:pointer}
+tr.click:hover td,td.click:hover{background:var(--surface-2)}
+.better{font-weight:700;color:var(--green)}
+.form{display:inline-flex;gap:3px}
+.form i{font-style:normal;width:20px;height:20px;border-radius:4px;display:inline-grid;place-items:center;font-size:11px;font-weight:700;background:var(--surface-2);color:var(--muted)}
+.form i.w{background:var(--green);color:#fff} .form i.l{background:var(--red);color:#fff}
+.vshead{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:end}
+.vsbig{font-family:var(--f-display);font-weight:800;font-size:56px;line-height:.9}
+.vsmid{text-align:center;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-bottom:8px}
+.split{height:8px;border-radius:4px;background:var(--red);overflow:hidden}
+.split b{display:block;height:100%;background:var(--ink)}
+.cmp td{font-family:var(--f-display);font-size:20px;font-weight:600}
+.cmp td.note{font-family:var(--f-body);font-size:13.5px}
+.matrix th:first-child{white-space:nowrap}
+.matrix td{font-family:var(--f-display);font-size:20px;font-weight:800}
+.matrix td .note{font-family:var(--f-body);font-size:12px;font-weight:500}
+textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+@media (min-width:600px){.rem{font-size:78px}.result .w{font-size:72px}.vsbig{font-size:80px}}
+/* Older Safari (before 14.1) ignores gap in flex layouts; the page adds .no-flexgap there and these margins stand in. */
+.no-flexgap .stack>*+*{margin-top:18px}
+.no-flexgap .field>*+*,.no-flexgap .pad>*+*,.no-flexgap .hist>*+*{margin-top:8px}
+.no-flexgap .hbody>*+*{margin-top:12px}
+.no-flexgap .pcard>*+*{margin-top:2px}
+.no-flexgap .bar>*+*{margin-top:3px}
+.no-flexgap .brand>*+*,.no-flexgap .ph>*+*,.no-flexgap .dchips>*+*,.no-flexgap .chip>*+*{margin-left:7px}
+.no-flexgap .store>*+*,.no-flexgap .lives>*+*,.no-flexgap .bars>*+*,.no-flexgap .form>*+*{margin-left:5px}
+.no-flexgap nav>*+*{margin-left:2px}
+.no-flexgap .log div>*+*{margin-left:10px}
+.no-flexgap .topin>*{margin:4px 14px 4px 0}
+.no-flexgap .row,.no-flexgap .opts,.no-flexgap .filters,.no-flexgap .legend,.no-flexgap .pm{margin:-4px}
+.no-flexgap .row>*,.no-flexgap .opts>*,.no-flexgap .filters>*,.no-flexgap .legend>*,.no-flexgap .pm>*{margin:4px}
+.no-flexgap .resume>*,.no-flexgap .livebar>*,.no-flexgap .hhead>*{margin:4px 12px 4px 0}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:9px;font-weight:600;z-index:20;max-width:calc(100% - 32px)}
+.result{text-align:center;padding-block:10px}
+.result .w{font-family:var(--f-display);font-weight:800;font-size:44px;text-transform:uppercase;line-height:1}
+@media (prefers-reduced-motion:no-preference){.pcard{transition:background .15s,color .15s}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap topin">
+  <div class="brand"><svg viewBox="-12 -12 24 24" aria-hidden="true"><circle r="11" fill="none" stroke="currentColor" stroke-width="2"/><circle r="6.5" fill="none" stroke="var(--red)" stroke-width="2"/><circle r="2" fill="var(--green)"/></svg>Oche Ledger</div>
+  <span class="store" id="store"><i></i>Loading</span>
+  <nav id="nav">
+    <button data-act="nav" data-v="play" class="on">Play</button>
+    <button data-act="nav" data-v="stats">Stats</button>
+    <button data-act="nav" data-v="history">History</button>
+    <button data-act="nav" data-v="players">Players</button>
+  </nav>
+</div></header>
+<main class="wrap" id="view"></main>
+<div id="toast" hidden></div>
+
+<script>
+var _a;
+(function() {
+  const d = document.createElement("div");
+  d.style.cssText = "display:flex;flex-direction:column;row-gap:1px;position:absolute";
+  d.appendChild(document.createElement("div"));
+  d.appendChild(document.createElement("div"));
+  document.body.appendChild(d);
+  const ok = d.scrollHeight === 1;
+  document.body.removeChild(d);
+  if (!ok) document.documentElement.classList.add("no-flexgap");
+})();
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s != null ? s : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+let clockOverride = null;
+const clock = () => clockOverride != null ? clockOverride : Date.now();
+const ORDER = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+const BOGEY = /* @__PURE__ */ new Set([159, 162, 163, 165, 166, 168, 169]);
+const NO_VISIT = /* @__PURE__ */ new Set([163, 166, 169, 172, 173, 175, 176, 178, 179]);
+const CR = [20, 19, 18, 17, 16, 15, 25];
+const dv = (d) => d[0] === 0 ? 0 : d[0] * d[1];
+const dlabel = (d) => d[0] === 0 ? "Miss" : d[0] === 25 ? d[1] === 2 ? "Bull" : "25" : ["", "", "D", "T"][d[1]] + d[0];
+const dkey = (d) => d[0] === 0 ? "M" : d[0] === 25 ? d[1] === 2 ? "DB" : "SB" : ["", "S", "D", "T"][d[1]] + d[0];
+const f2 = (v) => isFinite(v) ? v.toFixed(2) : "\u2013";
+const f1 = (v) => isFinite(v) ? v.toFixed(1) : "\u2013";
+const pct = (a, b) => b ? (a / b * 100).toFixed(1) + "%" : "\u2013";
+const dayKey = (t) => new Date(t).toLocaleDateString("en-CA");
+const fmtDate = (t) => new Date(t).toLocaleDateString(void 0, { day: "numeric", month: "short" });
+const fmtDT = (t) => new Date(t).toLocaleString(void 0, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toast.h);
+  toast.h = setTimeout(() => t.hidden = true, 2600);
+}
+const ALL = [];
+for (let n = 1; n <= 20; n++) ALL.push([n, 1], [n, 2], [n, 3]);
+ALL.push([25, 1], [25, 2]);
+const dblCost = (d) => {
+  var _a2;
+  return (_a2 = { 20: 0, 16: 0, 8: 1, 10: 1, 12: 1, 18: 1, 4: 2, 6: 2, 14: 2 }[d[0]]) != null ? _a2 : 3;
+};
+const setCost = (d) => d[1] === 3 ? d[0] === 20 ? 1 : d[0] === 19 ? 1.2 : d[0] >= 15 ? 1.6 : 2.5 : d[1] === 1 ? d[0] === 25 ? 2.6 : d[0] === 20 ? 0.8 : 1 : 4;
+const endBest = { true: {}, false: {} };
+for (const d of ALL) {
+  const v = dv(d);
+  if (d[1] === 2) {
+    const c2 = dblCost(d);
+    if (!endBest.true[v] || c2 < endBest.true[v].c) endBest.true[v] = { d, c: c2 };
+  }
+  const c = setCost(d);
+  if (!endBest.false[v] || c < endBest.false[v].c) endBest.false[v] = { d, c };
+}
+const coMemo = /* @__PURE__ */ new Map();
+function checkout(rem, left = 3, dblOut = true) {
+  const k = rem + "|" + left + "|" + dblOut;
+  if (coMemo.has(k)) return coMemo.get(k);
+  const E = endBest[dblOut];
+  let best = null, bc = 1e9;
+  if (E[rem]) {
+    best = [E[rem].d];
+    bc = E[rem].c;
+  }
+  if (!best && left >= 2) for (const a of ALL) {
+    const e = E[rem - dv(a)];
+    if (e) {
+      const c = setCost(a) + e.c;
+      if (c < bc) {
+        bc = c;
+        best = [a, e.d];
+      }
+    }
+  }
+  if (!best && left >= 3) for (const a of ALL) {
+    const r1 = rem - dv(a);
+    if (r1 < 2) continue;
+    for (const b of ALL) {
+      const e = E[r1 - dv(b)];
+      if (e) {
+        const c = setCost(a) + setCost(b) + e.c;
+        if (c < bc) {
+          bc = c;
+          best = [a, b, e.d];
+        }
+      }
+    }
+  }
+  coMemo.set(k, best);
+  return best;
+}
+const curLeg = (m) => m.legs[m.legs.length - 1];
+function newMatch(game, settings, players, names) {
+  return {
+    id: uid(),
+    game,
+    status: "live",
+    startedAt: clock(),
+    endedAt: null,
+    settings,
+    players,
+    names,
+    legs: [{ starter: 0, visits: [], startedAt: clock(), winner: null }],
+    pending: [],
+    winner: null
+  };
+}
+function x01Darts(rem, opened, darts, S) {
+  let r = rem, op = opened, score = 0, bust = false, co = false;
+  for (const d of darts) {
+    let v = dv(d);
+    if (!op) {
+      if (d[1] === 2) op = true;
+      else v = 0;
+    }
+    const nr = r - v;
+    if (nr < 0 || S.doubleOut && nr === 1 || nr === 0 && S.doubleOut && d[1] !== 2) {
+      bust = true;
+      break;
+    }
+    r = nr;
+    score += v;
+    if (r === 0) {
+      co = true;
+      break;
+    }
+  }
+  return { score: bust ? 0 : score, bust, co, opened: bust ? opened : op, rem: bust ? rem : r };
+}
+function x01State(m) {
+  const S = m.settings, P = m.players, leg = curLeg(m);
+  const rem = P.map(() => S.start), opened = P.map(() => !S.doubleIn), darts = P.map(() => 0);
+  for (const v of leg.visits) {
+    const i = P.indexOf(v.p);
+    if (!v.bust) rem[i] -= v.score;
+    if (v.opened) opened[i] = true;
+    darts[i] += v.n;
+  }
+  return { rem, opened, darts, turn: (leg.starter + leg.visits.length) % P.length };
+}
+function crApply(st, i, d) {
+  const [s, mu] = d;
+  if (!CR.includes(s)) return { mk: 0, pt: 0 };
+  const need = Math.max(0, 3 - st.marks[i][s]), close = Math.min(mu, need);
+  st.marks[i][s] += close;
+  let extra = mu - close, pt = 0, mk = close;
+  if (extra > 0 && st.marks.some((mm, j) => j !== i && mm[s] < 3)) {
+    pt = extra * s;
+    st.pts[i] += pt;
+    mk += extra;
+  }
+  return { mk, pt };
+}
+function crState(m) {
+  const P = m.players, leg = curLeg(m);
+  const st = { marks: P.map(() => Object.fromEntries(CR.map((s) => [s, 0]))), pts: P.map(() => 0), pm: 0, pp: 0 };
+  for (const v of leg.visits) {
+    const i = P.indexOf(v.p);
+    for (const d of v.darts) crApply(st, i, d);
+  }
+  st.turn = (leg.starter + leg.visits.length) % P.length;
+  for (const d of m.pending) {
+    const r = crApply(st, st.turn, d);
+    st.pm += r.mk;
+    st.pp += r.pt;
+  }
+  st.winner = -1;
+  P.forEach((_, i) => {
+    if (st.winner < 0 && CR.every((s) => st.marks[i][s] >= 3) && st.pts.every((p, j) => j === i || st.pts[i] >= p)) st.winner = i;
+  });
+  return st;
+}
+function kiApply(st, i, d, S) {
+  const [s, mu] = d;
+  if (s < 1 || s > 20 || mu < 2) return {};
+  const hits = mu === 2 ? 1 : S.trebles ? 2 : 0;
+  if (!hits) return {};
+  const o = st.num.indexOf(s);
+  if (o < 0) return {};
+  if (o === i) {
+    if (!st.killer[i]) {
+      st.killer[i] = true;
+      return { became: true };
+    }
+    if (S.suicide) {
+      st.lives[i] = Math.max(0, st.lives[i] - hits);
+      return { self: hits };
+    }
+    return {};
+  }
+  if (st.killer[i] && st.lives[o] > 0) {
+    const t = Math.min(hits, st.lives[o]);
+    st.lives[o] -= t;
+    return { taken: t };
+  }
+  return {};
+}
+function nextAlive(st, i) {
+  const n = st.lives.length;
+  for (let k = 1; k <= n; k++) {
+    const j = (i + k) % n;
+    if (st.lives[j] > 0) return j;
+  }
+  return i;
+}
+function kiState(m) {
+  const S = m.settings, P = m.players, leg = curLeg(m);
+  const st = { lives: P.map(() => S.lives), killer: P.map(() => false), num: P.map((p) => S.numbers[p]), pt: 0, pb: -1, ps: 0 };
+  let last = -1;
+  for (const v of leg.visits) {
+    const i = P.indexOf(v.p);
+    for (const d of v.darts) kiApply(st, i, d, S);
+    last = i;
+  }
+  st.turn = last < 0 ? st.lives[leg.starter] > 0 ? leg.starter : nextAlive(st, leg.starter) : nextAlive(st, last);
+  m.pending.forEach((d, k) => {
+    const r = kiApply(st, st.turn, d, S);
+    st.pt += r.taken || 0;
+    if (r.became) st.pb = k;
+    st.ps += r.self || 0;
+  });
+  const alive = st.lives.map((l, i) => l > 0 ? i : -1).filter((i) => i >= 0);
+  st.winner = P.length > 1 && alive.length === 1 ? alive[0] : -1;
+  return st;
+}
+function commit(m, v, winner) {
+  v.t = clock();
+  curLeg(m).visits.push(v);
+  m.pending = [];
+  if (!winner) return;
+  const leg = curLeg(m);
+  leg.winner = winner;
+  leg.endedAt = clock();
+  const wins = m.legs.filter((l) => l.winner === winner).length;
+  if (wins >= m.settings.legs) {
+    m.status = "done";
+    m.winner = winner;
+    m.endedAt = clock();
+  } else m.legs.push({ starter: (leg.starter + 1) % m.players.length, visits: [], startedAt: clock(), winner: null });
+}
+function addDart(m, d) {
+  m.pending.push(d);
+  const P = m.players, n = m.pending.length;
+  if (m.game === "x01") {
+    const st = x01State(m), i = st.turn, r = x01Darts(st.rem[i], st.opened[i], m.pending, m.settings);
+    if (n === 3 || r.bust || r.co) commit(m, { p: P[i], darts: m.pending.slice(), n, score: r.score, bust: r.bust, co: r.co, rem: st.rem[i], opened: r.opened }, r.co ? P[i] : null);
+  } else if (m.game === "cricket") {
+    const st = crState(m);
+    if (n === 3 || st.winner >= 0) commit(m, { p: P[st.turn], darts: m.pending.slice(), n, marks: st.pm, pts: st.pp }, st.winner >= 0 ? P[st.winner] : null);
+  } else {
+    const st = kiState(m);
+    if (n === 3 || st.winner >= 0 || st.lives[st.turn] <= 0) commit(m, { p: P[st.turn], darts: m.pending.slice(), n, taken: st.pt, bi: st.pb, self: st.ps }, st.winner >= 0 ? P[st.winner] : null);
+  }
+}
+function undo(m) {
+  if (m.pending.length) {
+    m.pending.pop();
+    return true;
+  }
+  let leg = curLeg(m);
+  if (!leg.visits.length) {
+    if (m.legs.length <= 1) return false;
+    m.legs.pop();
+    leg = curLeg(m);
+  }
+  leg.winner = null;
+  leg.endedAt = null;
+  m.status = "live";
+  m.winner = null;
+  m.endedAt = null;
+  const v = leg.visits.pop();
+  if (!v) return false;
+  if (v.darts) m.pending = v.darts.slice(0, -1);
+  return true;
+}
+const Store = { mode: "loading", db: null, canWrite: true, players: {}, matches: {}, inflight: {}, dirty: {} };
+const LS = "oche-ledger-v1";
+function loadLocal() {
+  try {
+    const j = JSON.parse(localStorage.getItem(LS) || "{}");
+    Store.players = j.players || {};
+    Store.matches = j.matches || {};
+  } catch (e) {
+  }
+}
+function saveLocal() {
+  try {
+    localStorage.setItem(LS, JSON.stringify({ players: Store.players, matches: Store.matches }));
+  } catch (e) {
+    toast("Storage is full. Copy a backup from Players, then delete some old matches.");
+  }
+}
+async function initStore() {
+  var _a2;
+  let db = null;
+  try {
+    if ((_a2 = window.claude) == null ? void 0 : _a2.use) db = await window.claude.use("db");
+  } catch (e) {
+  }
+  if (!db) {
+    Store.mode = "local";
+    loadLocal();
+    render();
+    return;
+  }
+  Store.db = db;
+  Store.mode = "cloud";
+  try {
+    const u = await window.claude.use("user");
+    if (u && await u.can("data.write") === false) {
+      Store.canWrite = false;
+      Store.mode = "ro";
+    }
+  } catch (e) {
+  }
+  db.collection("players").onSnapshot((s) => {
+    const o = {};
+    s.docs.forEach((d) => o[d.id] = { id: d.id, ...d.data() });
+    Store.players = o;
+    softRender();
+  }, (e) => toast("Players unavailable: " + e.code));
+  db.collection("matches").onSnapshot((s) => {
+    const o = {};
+    s.docs.forEach((d) => o[d.id] = d.data());
+    Store.matches = o;
+    softRender();
+  }, (e) => toast("Matches unavailable: " + e.code));
+  render();
+}
+const plain = (o) => JSON.parse(JSON.stringify(o));
+async function saveMatch(m) {
+  Store.matches[m.id] = plain(m);
+  if (Store.mode === "local") return saveLocal();
+  if (!Store.db) return;
+  if (Store.inflight[m.id]) {
+    Store.dirty[m.id] = m;
+    return;
+  }
+  Store.inflight[m.id] = true;
+  try {
+    await Store.db.doc("matches/" + m.id).set(plain(m));
+  } catch (e) {
+    toast(e.code === "invalid_argument" ? "You have view-only access, so this match isn\u2019t saved" : "Couldn\u2019t save the match (" + (e.code || "error") + ")");
+  }
+  Store.inflight[m.id] = false;
+  const nx = Store.dirty[m.id];
+  if (nx) {
+    delete Store.dirty[m.id];
+    saveMatch(nx);
+  }
+}
+async function deleteMatch(id) {
+  delete Store.matches[id];
+  if (Store.mode === "local") return saveLocal();
+  try {
+    await Store.db.doc("matches/" + id).delete();
+  } catch (e) {
+    toast("Couldn\u2019t delete (" + e.code + ")");
+  }
+}
+async function savePlayer(p) {
+  Store.players[p.id] = p;
+  if (Store.mode === "local") return saveLocal();
+  try {
+    await Store.db.doc("players/" + p.id).set({ name: p.name, createdAt: p.createdAt });
+  } catch (e) {
+    toast("Couldn\u2019t save player (" + e.code + ")");
+  }
+}
+async function deletePlayer(id) {
+  delete Store.players[id];
+  if (Store.mode === "local") return saveLocal();
+  try {
+    await Store.db.doc("players/" + id).delete();
+  } catch (e) {
+    toast("Couldn\u2019t remove player (" + e.code + ")");
+  }
+}
+function matchList() {
+  const o = { ...Store.matches };
+  if (live) o[live.id] = live;
+  return Object.values(o).filter((m) => m && m.legs).sort((a, b) => a.startedAt - b.startedAt);
+}
+const nameOf = (pid, m) => {
+  var _a2, _b;
+  return ((_a2 = Store.players[pid]) == null ? void 0 : _a2.name) || ((_b = m == null ? void 0 : m.names) == null ? void 0 : _b[pid]) || nameCache[pid] || "Player";
+};
+const nameCache = {};
+let live = null;
+const ui = {
+  view: "play",
+  entry: "",
+  askDarts: null,
+  mult: 1,
+  confirm: null,
+  open: null,
+  renaming: null,
+  setup: { game: "x01", start: 501, doubleOut: true, doubleIn: false, legs: 3, mode: "visit", players: [], lives: 3, trebles: false, suicide: true, numbers: {} },
+  sf: { pid: null, game: "x01", period: "all", start: "any" }
+};
+try {
+  const s = JSON.parse(localStorage.getItem(LS + "-ui") || "null");
+  if (s) {
+    Object.assign(ui.setup, s.setup || {});
+    Object.assign(ui.sf, s.sf || {});
+  }
+} catch (e) {
+}
+function remember() {
+  try {
+    localStorage.setItem(LS + "-ui", JSON.stringify({ setup: ui.setup, sf: ui.sf }));
+  } catch (e) {
+  }
+}
+function render() {
+  document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("on", b.dataset.v === ui.view));
+  const st = $("#store");
+  st.className = "store " + ({ cloud: "cloud", ro: "ro" }[Store.mode] || "");
+  st.lastChild.textContent = { loading: "Loading", local: "Saved on this device", cloud: "Synced", ro: "View only" }[Store.mode];
+  const v = $("#view");
+  v.innerHTML = ui.view === "play" ? viewPlay() : ui.view === "stats" ? viewStats() : ui.view === "history" ? viewHistory() : viewPlayers();
+}
+function softRender() {
+  const a = document.activeElement;
+  if (a && a.matches("input[type=text]")) return;
+  render();
+}
+function gameLabel(m) {
+  const S = m.settings, ft = "first to ".concat(S.legs);
+  if (m.game === "x01") return "".concat(S.start, " \xB7 ").concat(ft, " \xB7 ").concat(S.doubleIn ? "double in \xB7 " : "").concat(S.doubleOut ? "double out" : "straight out");
+  if (m.game === "cricket") return "Cricket \xB7 ".concat(ft);
+  return "Killer \xB7 ".concat(S.lives, " lives \xB7 ").concat(ft);
+}
+function viewPlay() {
+  if (Store.mode === "loading") return '<p class="note">Loading your scores\u2026</p>';
+  if (live) return live.status === "live" ? viewLive(live) : viewResult(live);
+  return viewSetup();
+}
+const opt = (k, v, cur, label) => '<button class="opt'.concat(cur === v ? " on" : "", '" data-act="set" data-k="').concat(k, '" data-v="').concat(v, '">').concat(label, "</button>");
+const tog = (k, cur, label) => '<button class="opt'.concat(cur ? " on" : "", '" data-act="tog" data-k="').concat(k, '">').concat(label, "</button>");
+function viewSetup() {
+  const s = ui.setup, roster = Object.values(Store.players).sort((a, b) => a.name.localeCompare(b.name));
+  s.players = s.players.filter((p) => Store.players[p]);
+  const resumes = matchList().filter((m) => m.status === "live").reverse();
+  let h = '<div class="stack">';
+  if (Store.mode === "ro") h += '<div class="banner">You have view-only access. You can browse stats and history, but new matches won\'t be saved.</div>';
+  if (resumes.length) h += '<div class="panel stack"><h3>Unfinished matches</h3>'.concat(resumes.map((m) => {
+    const tally = m.players.map((p) => "".concat(esc(nameOf(p, m)), " ").concat(m.legs.filter((l) => l.winner === p).length)).join(" \u2013 ");
+    return '<div class="resume"><div><div class="eyebrow">'.concat(esc(gameLabel(m)), " \xB7 ").concat(fmtDT(m.startedAt), '</div><div class="score">').concat(tally, '</div></div><div class="row"><button class="btn" data-act="resume" data-id="').concat(m.id, '">Resume</button></div></div>');
+  }).join(""), "</div>");
+  h += '<div class="panel stack"><h2>New match</h2>\n  <div class="field"><span class="eyebrow">Game</span><div class="opts">'.concat(opt("game", "x01", s.game, "X01")).concat(opt("game", "cricket", s.game, "Cricket")).concat(opt("game", "killer", s.game, "Killer"), '</div></div>\n  <div class="fields">');
+  if (s.game === "x01") {
+    h += '<div class="field"><span class="eyebrow">Start score</span><div class="opts">'.concat([301, 501, 701].map((n) => opt("start", n, s.start, n)).join(""), '</div></div>\n    <div class="field"><span class="eyebrow">Rules</span><div class="opts">').concat(tog("doubleOut", s.doubleOut, "Double out")).concat(tog("doubleIn", s.doubleIn, "Double in"), '</div></div>\n    <div class="field"><span class="eyebrow">Score entry</span><div class="opts">').concat(opt("mode", "visit", s.mode, "Visit totals")).concat(opt("mode", "dart", s.mode, "Dart by dart"), '</div><span class="note">Dart by dart records every segment, which unlocks the accuracy heatmap and per-double hit rates. You can switch during a match.</span></div>');
+  }
+  if (s.game === "killer") {
+    h += '<div class="field"><span class="eyebrow">Lives</span><div class="opts">'.concat([3, 5].map((n) => opt("lives", n, s.lives, n)).join(""), '</div></div>\n    <div class="field"><span class="eyebrow">Rules</span><div class="opts">').concat(tog("trebles", s.trebles, "Treble takes 2 lives")).concat(tog("suicide", s.suicide, "Own double costs a life"), '</div><span class="note">Hit your own double to become a killer. Killers take a life with each double of an opponent\'s number.</span></div>');
+  }
+  h += '<div class="field"><span class="eyebrow">Match length</span><div class="opts">'.concat([1, 2, 3, 4, 5, 7].map((n) => opt("legs", n, s.legs, "First to " + n)).join(""), '</div></div></div>\n  <div class="field"><span class="eyebrow">Players \xB7 tap in throwing order</span>\n    <div class="opts">').concat(roster.map((p) => {
+    const k = s.players.indexOf(p.id);
+    return '<button class="chip'.concat(k >= 0 ? " on" : "", '" data-act="pick" data-id="').concat(p.id, '">').concat(k >= 0 ? "<b>".concat(k + 1, "</b>") : "").concat(esc(p.name), "</button>");
+  }).join("") || '<span class="note">No players yet. Add the first one below.</span>', '</div>\n    <form data-form="addp" class="row"><input type="text" id="newp" placeholder="Add a player" maxlength="24" autocomplete="off"><button class="btn">Add</button></form>\n  </div>');
+  if (s.game === "killer" && s.players.length) {
+    h += '<div class="field"><span class="eyebrow">Killer numbers</span><div class="row">'.concat(s.players.map((p) => {
+      var _a2;
+      return '<label class="chip">'.concat(esc((_a2 = Store.players[p]) == null ? void 0 : _a2.name), ' <select data-change="knum" data-id="').concat(p, '" id="kn-').concat(p, '">').concat(Array.from({ length: 20 }, (_, i) => "<option".concat(s.numbers[p] === i + 1 ? " selected" : "", ">").concat(i + 1, "</option>")).join(""), "</select></label>");
+    }).join(""), '<button class="btn" data-act="shufflenums">Shuffle numbers</button></div></div>');
+  }
+  const ok = s.players.length >= (s.game === "killer" ? 2 : 1);
+  h += '<div class="row"><button class="btn primary big" data-act="start" '.concat(ok ? "" : "disabled", ">Start match</button>").concat(s.players.length > 1 ? '<button class="btn" data-act="shuffleorder">Random order</button>' : "", "</div></div></div>");
+  return h;
+}
+function ensureNumbers() {
+  const s = ui.setup, used = /* @__PURE__ */ new Set();
+  s.players.forEach((p) => {
+    const n = s.numbers[p];
+    if (n && !used.has(n)) used.add(n);
+    else delete s.numbers[p];
+  });
+  s.players.forEach((p) => {
+    if (!s.numbers[p]) {
+      let n;
+      do {
+        n = 1 + Math.floor(Math.random() * 20);
+      } while (used.has(n));
+      used.add(n);
+      s.numbers[p] = n;
+    }
+  });
+}
+function viewLive(m) {
+  const S = m.settings, P = m.players, tally = P.map((p) => m.legs.filter((l) => l.winner === p).length).join(" \u2013 ");
+  let board = "", pad = "";
+  if (m.game === "x01") {
+    const st = x01State(m), i = st.turn, run = x01Darts(st.rem[i], st.opened[i], m.pending, S), leg = curLeg(m);
+    const avg = P.map((p) => {
+      let s = 0, n = 0;
+      m.legs.forEach((l) => l.visits.forEach((v) => {
+        if (v.p === p) {
+          s += v.score;
+          n += v.n;
+        }
+      }));
+      return n ? s / n * 3 : NaN;
+    });
+    board = '<div class="pcards">'.concat(P.map((p, j) => {
+      const act = j === i, rem = act ? run.rem : st.rem[j], lv = [...leg.visits].reverse().find((v) => v.p === p);
+      const left = S.mode === "dart" ? 3 - m.pending.length : 3, route = act && rem <= 170 ? checkout(rem, left, S.doubleOut) : null;
+      return '<div class="pcard'.concat(act ? " act" : "", '"><div class="ph"><span class="pn">').concat(esc(nameOf(p, m)), '</span><span class="legs" title="Legs won">').concat(m.legs.filter((l) => l.winner === p).length, '</span></div>\n      <div class="rem">').concat(rem, '</div>\n      <div class="pm"><span>Avg ').concat(f1(avg[j]), "</span><span>").concat(st.darts[j] + (act ? m.pending.length : 0), " darts</span>").concat(lv ? "<span>Last ".concat(lv.bust ? "bust" : lv.score, "</span>") : "", "</div>\n      ").concat(route ? '<div class="route">'.concat(route.map(dlabel).join(" \xB7 "), "</div>") : "", "\n      ").concat(act && S.mode === "dart" ? '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>") : "", "\n      </div>");
+    }).join(""), "</div>").concat(legLog(m));
+    pad = S.mode === "dart" ? dartPad(m) : visitPad(m, st);
+  } else if (m.game === "cricket") {
+    const st = crState(m);
+    const mpr = P.map((p) => {
+      let k = 0, n = 0;
+      m.legs.forEach((l) => l.visits.forEach((v) => {
+        if (v.p === p) {
+          k += v.marks;
+          n += v.n;
+        }
+      }));
+      return n ? k / n * 3 : NaN;
+    });
+    const glyph = (n) => ["", "/", "\u2715", "\u24CD"][Math.min(3, n)];
+    board = '<div class="panel tscroll"><table class="cr"><thead><tr><th></th>'.concat(P.map((p, j) => '<th class="'.concat(j === st.turn ? "act" : "", '"><div class="pn">').concat(esc(nameOf(p, m)), '</div><div class="pts">').concat(st.pts[j], "</div><div>Legs ").concat(m.legs.filter((l) => l.winner === p).length, " \xB7 MPR ").concat(f2(mpr[j]), "</div></th>")).join(""), "</tr></thead>\n    <tbody>").concat(CR.map((s) => '<tr class="'.concat(st.marks.every((mm) => mm[s] >= 3) ? "dead" : "", '"><th>').concat(s === 25 ? "Bull" : s, "</th>").concat(P.map((p, j) => '<td class="'.concat(j === st.turn ? "act" : "", '">').concat(glyph(st.marks[j][s]), "</td>")).join(""), "</tr>")).join(""), '</tbody></table>\n    <div class="dchips">').concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div></div>");
+    pad = dartPad(m);
+  } else {
+    const st = kiState(m);
+    board = '<div class="pcards">'.concat(P.map((p, j) => '<div class="pcard'.concat(j === st.turn ? " act" : "").concat(st.lives[j] <= 0 ? " out" : "", '"><div class="ph"><span class="pn">').concat(esc(nameOf(p, m)), '</span><span class="legs">').concat(m.legs.filter((l) => l.winner === p).length, '</span></div>\n      <div class="rem">').concat(st.num[j], '</div>\n      <div class="lives">').concat(Array.from({ length: S.lives }, (_, k) => '<i class="'.concat(k < st.lives[j] ? "f" : "", '"></i>')).join(""), '</div>\n      <div class="pm">').concat(st.lives[j] <= 0 ? "<span>Out</span>" : st.killer[j] ? '<span class="badge">Killer</span>' : "<span>Needs D".concat(st.num[j], "</span>"), "</div>\n      ").concat(j === st.turn ? '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>") : "", "\n    </div>")).join(""), "</div>");
+    pad = dartPad(m);
+  }
+  const conf = ui.confirm === "abandon" ? '<div class="banner row" style="justify-content:space-between">Delete this match and its scores? <span class="row"><button class="btn danger" data-act="abandon">Delete match</button><button class="btn" data-act="noconfirm">Keep it</button></span></div>' : "";
+  return '<div class="livebar"><div><div class="eyebrow">'.concat(esc(gameLabel(m)), '</div><div class="legline">Leg ').concat(m.legs.length, " \xB7 ").concat(tally, '</div></div>\n    <div class="row">').concat(m.game === "x01" ? '<div class="opts">'.concat(["visit", "dart"].map((md) => '<button class="opt'.concat(S.mode === md ? " on" : "", '" data-act="mode" data-v="').concat(md, '" ').concat(m.pending.length ? "disabled" : "", ">").concat(md === "visit" ? "Visit" : "Dart", "</button>")).join(""), "</div>") : "", '\n    <button class="btn" data-act="leave">Pause</button><button class="btn" data-act="askabandon">Delete</button></div></div>\n    ').concat(conf, '<div class="livegrid"><div>').concat(board, "</div><div>").concat(pad, "</div></div>");
+}
+function legLog(m) {
+  const leg = curLeg(m), vs = leg.visits.slice(-6).reverse();
+  if (!vs.length) return "";
+  return '<div class="log">'.concat(vs.map((v) => "<div><span>".concat(esc(nameOf(v.p, m)), " \xB7 ").concat(v.bust ? "Bust" : v.score).concat(v.darts ? ' <span class="note">(' + v.darts.map(dlabel).join(" ") + ")</span>" : "", "</span><span>").concat(v.bust ? v.rem : v.rem - v.score, " left</span></div>")).join(""), "</div>");
+}
+function visitPad(m, st) {
+  const S = m.settings, r = st.rem[st.turn];
+  if (ui.askDarts != null) {
+    const min = checkout(r, 1, S.doubleOut) ? 1 : checkout(r, 2, S.doubleOut) ? 2 : 3;
+    return '<div class="pad panel"><p class="askq">Checkout '.concat(r, '. Darts used?</p><div class="askrow">').concat([1, 2, 3].map((n) => '<button class="key" data-act="codarts" data-v="'.concat(n, '" ').concat(n < min ? "disabled" : "", ">").concat(n, "</button>")).join(""), '</div><button class="btn" data-act="cancelask">Cancel</button></div>');
+  }
+  const e = ui.entry, a = e ? r - Number(e) : null;
+  const canOut = r <= 180 && !!checkout(r, 3, S.doubleOut);
+  return '<div class="pad">\n    <div class="entry"><span class="ev">'.concat(e || "0", '</span><span class="ea">').concat(a == null ? "Remaining " + r : a < 0 || S.doubleOut && a === 1 ? "Bust" : a === 0 ? "Checkout" : "Leaves " + a, '</span></div>\n    <div class="quick">').concat([26, 41, 45, 60, 81, 85, 100, 140, 180].map((q) => '<button class="key" data-act="quick" data-v="'.concat(q, '">').concat(q, "</button>")).join(""), '</div>\n    <div class="keys">').concat([1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => '<button class="key" data-act="key" data-v="'.concat(k, '">').concat(k, "</button>")).join(""), '<button class="key sm" data-act="key" data-v="back" aria-label="Delete digit">\u232B</button><button class="key" data-act="key" data-v="0">0</button><button class="key enter" data-act="enter">Enter</button></div>\n    <div class="actions"><button class="key sm" data-act="bust">Bust</button><button class="key sm" data-act="out" ').concat(canOut ? "" : "disabled", ">Out ").concat(canOut ? r : "", '</button><button class="key sm" data-act="undo">Undo</button></div>\n  </div>');
+}
+function dartPad(m) {
+  const owner = {};
+  if (m.game === "killer") m.players.forEach((p) => owner[m.settings.numbers[p]] = nameOf(p, m));
+  const dim = (n) => m.game === "cricket" && n < 15;
+  return '<div class="pad">\n    <div class="mults"><button class="key sm mul2'.concat(ui.mult === 2 ? " on" : "", '" data-act="mult" data-v="2">Double</button><button class="key sm mul3').concat(ui.mult === 3 ? " on" : "", '" data-act="mult" data-v="3">Treble</button><button class="key sm" data-act="undo">Undo</button></div>\n    <div class="nums">').concat(Array.from({ length: 20 }, (_, i) => i + 1).map((n) => '<button class="key'.concat(dim(n) ? " dim" : "", '" data-act="dart" data-v="').concat(n, '">').concat(n).concat(owner[n] ? "<small>".concat(esc(owner[n]), "</small>") : "", "</button>")).join(""), '</div>\n    <div class="extras"><button class="key sm" data-act="dart" data-v="25">25</button><button class="key sm" data-act="dart" data-v="50">Bull</button><button class="key sm" data-act="dart" data-v="0">Miss</button></div>\n  </div>');
+}
+function viewResult(m) {
+  const P = m.players, ms = [m];
+  let rows = "";
+  if (m.game === "x01") rows = '<table><thead><tr><th>Player</th><th class="num">Legs</th><th class="num">Avg</th><th class="num">First 9</th><th class="num">100+</th><th class="num">140+</th><th class="num">180</th><th class="num">Best leg</th><th class="num">High out</th></tr></thead><tbody>'.concat(P.map((p) => {
+    var _a2;
+    const X = statsFor(p, ms).X;
+    return "<tr><td>".concat(esc(nameOf(p, m)), '</td><td class="num">').concat(X.lw, '</td><td class="num">').concat(f2(X.pts / X.d * 3), '</td><td class="num">').concat(f2(X.f9p / X.f9d * 3), '</td><td class="num">').concat(X.b[1], '</td><td class="num">').concat(X.b[2], '</td><td class="num">').concat(X.b[3], '</td><td class="num">').concat((_a2 = X.best) != null ? _a2 : "\u2013", '</td><td class="num">').concat(X.hiCo || "\u2013", "</td></tr>");
+  }).join(""), "</tbody></table>");
+  else if (m.game === "cricket") rows = '<table><thead><tr><th>Player</th><th class="num">Legs</th><th class="num">MPR</th><th class="num">5+ rounds</th><th class="num">Trebles</th></tr></thead><tbody>'.concat(P.map((p) => {
+    const s = statsFor(p, ms);
+    return "<tr><td>".concat(esc(nameOf(p, m)), '</td><td class="num">').concat(s.C.lw, '</td><td class="num">').concat(f2(s.C.marks / s.C.d * 3), '</td><td class="num">').concat(s.C.r5, '</td><td class="num">').concat(s.A.mult[3], "</td></tr>");
+  }).join(""), "</tbody></table>");
+  else rows = '<table><thead><tr><th>Player</th><th class="num">Games won</th><th class="num">Lives taken</th><th class="num">Darts to killer</th></tr></thead><tbody>'.concat(P.map((p) => {
+    const K = statsFor(p, ms).K;
+    return "<tr><td>".concat(esc(nameOf(p, m)), '</td><td class="num">').concat(K.lw, '</td><td class="num">').concat(K.taken, '</td><td class="num">').concat(K.toK.length ? f1(K.toK.reduce((a, b) => a + b, 0) / K.toK.length) : "\u2013", "</td></tr>");
+  }).join(""), "</tbody></table>");
+  return '<div class="stack"><div class="panel result stack"><div class="eyebrow">'.concat(esc(gameLabel(m)), '</div><div class="w">').concat(esc(nameOf(m.winner, m)), ' wins</div><div class="score">').concat(P.map((p) => "".concat(esc(nameOf(p, m)), " ").concat(m.legs.filter((l) => l.winner === p).length)).join(" \u2013 "), '</div>\n  <div class="row" style="justify-content:center"><button class="btn primary big" data-act="rematch">Rematch</button><button class="btn" data-act="leave">New match</button><button class="btn" data-act="undo">Undo last dart</button></div></div>\n  <div class="panel tscroll">').concat(rows, "</div></div>");
+}
+function statsFor(pid, ms) {
+  var _a2;
+  const X = { m: 0, mw: 0, legs: 0, lw: 0, pts: 0, d: 0, f9p: 0, f9d: 0, v: 0, b: [0, 0, 0, 0], hi: 0, hist: new Array(10).fill(0), best: null, hiCo: 0, coO: 0, coH: 0, cos: {}, perMatch: [], recs: [] };
+  const C = { m: 0, mw: 0, legs: 0, lw: 0, marks: 0, d: 0, rounds: new Array(10).fill(0), r5: 0, r7: 0, r9: 0, recs: [] };
+  const K = { m: 0, mw: 0, legs: 0, lw: 0, taken: 0, toK: [], recs: [] };
+  const A = { seg: {}, n: 0, miss: 0, mult: [0, 0, 0, 0], sc: { n: 0, T20: 0, S20: 0, b1: 0, b5: 0, other: 0 }, dbl: {}, dA: 0, dH: 0 };
+  const opp = {};
+  const acc = (d) => {
+    A.n++;
+    const k = dkey(d);
+    A.seg[k] = (A.seg[k] || 0) + 1;
+    if (k === "M") A.miss++;
+    else A.mult[d[0] === 25 ? d[1] : d[1]]++;
+  };
+  for (const m of ms) {
+    if (!m.players.includes(pid)) continue;
+    const done = m.legs.filter((l) => l.winner);
+    if (!done.length) continue;
+    const T = m.game === "x01" ? X : m.game === "cricket" ? C : K;
+    T.m++;
+    if (m.winner === pid) T.mw++;
+    for (const o of m.players) if (o !== pid) {
+      const r = (_a2 = opp[o]) != null ? _a2 : opp[o] = { n: 0, w: 0, l: 0, lf: 0, la: 0, m, myP: 0, myD: 0, thP: 0, thD: 0, res: [] };
+      if (m.status === "done") {
+        r.n++;
+        if (m.winner === pid) r.w++;
+        else if (m.winner === o) r.l++;
+        r.res.push({ t: m.startedAt, r: m.winner === pid ? "W" : m.winner === o ? "L" : "\u2013" });
+      }
+      r.lf += done.filter((l) => l.winner === pid).length;
+      r.la += done.filter((l) => l.winner === o).length;
+      const val = (v) => m.game === "x01" ? v.score : m.game === "cricket" ? v.marks : 0;
+      done.forEach((l) => l.visits.forEach((v) => {
+        if (v.p === pid) {
+          r.myP += val(v);
+          r.myD += v.n;
+        } else if (v.p === o) {
+          r.thP += val(v);
+          r.thD += v.n;
+        }
+      }));
+    }
+    let mp = 0, md = 0, m180 = 0;
+    for (const leg of done) {
+      T.legs++;
+      if (leg.winner === pid) T.lw++;
+      const vs = leg.visits.filter((v) => v.p === pid);
+      let lp = 0, ld = 0;
+      if (m.game === "x01") {
+        const S = m.settings;
+        vs.forEach((v, k) => {
+          var _a3, _b;
+          const s = v.score;
+          X.pts += s;
+          X.d += v.n;
+          X.v++;
+          lp += s;
+          ld += v.n;
+          if (k < 3) {
+            X.f9p += s;
+            X.f9d += v.n;
+          }
+          if (s === 180) {
+            X.b[3]++;
+            m180++;
+          } else if (s >= 140) X.b[2]++;
+          else if (s >= 100) X.b[1]++;
+          else if (s >= 60) X.b[0]++;
+          X.hist[Math.min(9, Math.floor(s / 20))]++;
+          X.hi = Math.max(X.hi, s);
+          if (S.doubleOut ? v.rem <= 170 && !BOGEY.has(v.rem) : v.rem <= 180) {
+            X.coO++;
+            if (v.co) {
+              X.coH++;
+              X.hiCo = Math.max(X.hiCo, v.rem);
+              X.cos[v.rem] = (X.cos[v.rem] || 0) + 1;
+            }
+          }
+          if (v.darts) {
+            let r = v.rem;
+            for (const d of v.darts) {
+              acc(d);
+              if (r > 170) {
+                const c = A.sc;
+                c.n++;
+                if (d[0] === 20) {
+                  d[1] === 3 ? c.T20++ : c.S20++;
+                } else if (d[0] === 1) c.b1++;
+                else if (d[0] === 5) c.b5++;
+                else c.other++;
+              }
+              if (S.doubleOut && (r === 50 || r <= 40 && r % 2 === 0)) {
+                const t = r === 50 ? "DB" : "D" + r / 2, o = (_b = (_a3 = A.dbl)[t]) != null ? _b : _a3[t] = { a: 0, h: 0 };
+                o.a++;
+                A.dA++;
+                if (dkey(d) === t) {
+                  o.h++;
+                  A.dH++;
+                }
+              }
+              r -= dv(d);
+            }
+          }
+        });
+        if (leg.winner === pid) X.best = X.best == null ? ld : Math.min(X.best, ld);
+        mp += lp;
+        md += ld;
+      } else if (m.game === "cricket") {
+        vs.forEach((v) => {
+          C.marks += v.marks;
+          C.d += v.n;
+          lp += v.marks;
+          ld += v.n;
+          C.rounds[Math.min(9, v.marks)]++;
+          if (v.marks >= 5) C.r5++;
+          if (v.marks >= 7) C.r7++;
+          if (v.marks >= 9) C.r9++;
+          v.darts.forEach(acc);
+        });
+      } else {
+        let cnt = 0, toK = null;
+        vs.forEach((v) => {
+          K.taken += v.taken || 0;
+          lp += v.taken || 0;
+          ld += v.n;
+          v.darts.forEach(acc);
+          if (toK == null && v.bi >= 0 && v.bi != null) toK = cnt + v.bi + 1;
+          cnt += v.n;
+        });
+        if (toK != null) K.toK.push(toK);
+      }
+      T.recs.push({ t: leg.startedAt || m.startedAt, p: lp, d: ld, w: leg.winner === pid });
+    }
+    if (m.game === "x01" && md) X.perMatch.push({ t: m.startedAt, avg: mp / md * 3, m180, id: m.id });
+  }
+  return { X, C, K, A, opp };
+}
+function byDay(recs, scale = 3) {
+  const g = {};
+  recs.forEach((r) => {
+    var _a2;
+    const k = dayKey(r.t);
+    (_a2 = g[k]) != null ? _a2 : g[k] = { t: r.t, p: 0, d: 0, n: 0 };
+    g[k].p += r.p;
+    g[k].d += r.d;
+    g[k].n++;
+  });
+  return Object.values(g).sort((a, b) => a.t - b.t).filter((x) => x.d).map((x) => ({ t: x.t, y: x.p / x.d * scale, n: x.n }));
+}
+function byHour(recs, scale = 3) {
+  const g = {};
+  recs.forEach((r) => {
+    var _a2;
+    const h = new Date(r.t).getHours();
+    (_a2 = g[h]) != null ? _a2 : g[h] = { p: 0, d: 0, n: 0 };
+    g[h].p += r.p;
+    g[h].d += r.d;
+    g[h].n++;
+  });
+  return Object.keys(g).map(Number).sort((a, b) => a - b).filter((h) => g[h].d).map((h) => ({ l: String(h).padStart(2, "0") + ":00", v: g[h].p / g[h].d * scale, n: g[h].n + " legs" }));
+}
+function bySessionLeg(recs, scale = 3) {
+  const days = {};
+  recs.slice().sort((a, b) => a.t - b.t).forEach((r) => {
+    var _a2, _b;
+    return ((_b = days[_a2 = dayKey(r.t)]) != null ? _b : days[_a2] = []).push(r);
+  });
+  const B = ["1", "2", "3", "4", "5", "6\u201310", "11+"], g = B.map(() => ({ p: 0, d: 0, n: 0 }));
+  Object.values(days).forEach((list) => list.forEach((r, i) => {
+    const b = i < 5 ? i : i < 10 ? 5 : 6;
+    g[b].p += r.p;
+    g[b].d += r.d;
+    g[b].n++;
+  }));
+  return B.map((l, i) => ({ l: "Leg " + l, v: g[i].d ? g[i].p / g[i].d * scale : 0, n: g[i].n + " legs" })).filter((x, i) => g[i].n);
+}
+function niceStep(span) {
+  const raw = span / 4, p = Math.pow(10, Math.floor(Math.log10(raw || 1))), f = raw / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+}
+function lineChart(pts, { fmt = f1, roll = 5, label = "Session" } = {}) {
+  if (pts.length < 2) return '<p class="note">Play on at least two different days to see a trend line.</p>';
+  const W = 640, H = 250, L = 46, R = 18, T = 16, B = 36, n = pts.length;
+  const ra = pts.map((_, i) => {
+    const s = pts.slice(Math.max(0, i - roll + 1), i + 1);
+    return s.reduce((a, b) => a + b.y, 0) / s.length;
+  });
+  const ys = pts.map((p) => p.y);
+  let lo = Math.min(...ys), hi = Math.max(...ys);
+  if (hi - lo < 1) {
+    lo -= 1;
+    hi += 1;
+  }
+  const st = niceStep(hi - lo);
+  lo = Math.floor(lo / st) * st;
+  hi = Math.ceil(hi / st) * st;
+  const x = (i) => L + (W - L - R) * i / (n - 1), y = (v) => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  let g = "";
+  for (let v = lo; v <= hi + 1e-9; v += st) g += '<line x1="'.concat(L, '" x2="').concat(W - R, '" y1="').concat(y(v), '" y2="').concat(y(v), '" stroke="var(--line)"/><text x="').concat(L - 8, '" y="').concat(y(v) + 4, '" text-anchor="end">').concat(+v.toFixed(2), "</text>");
+  const path = (a) => a.map((v, i) => "".concat(i ? "L" : "M").concat(x(i).toFixed(1), " ").concat(y(v).toFixed(1))).join("");
+  const area = "".concat(path(ys), "L").concat(x(n - 1), " ").concat(H - B, "L").concat(x(0), " ").concat(H - B, "Z");
+  const xl = [0, Math.floor((n - 1) / 2), n - 1].filter((v, i, a) => a.indexOf(v) === i).map((i) => '<text x="'.concat(x(i), '" y="').concat(H - 12, '" text-anchor="').concat(i === 0 ? "start" : i === n - 1 ? "end" : "middle", '">').concat(fmtDate(pts[i].t), "</text>")).join("");
+  const dots = pts.map((p, i) => '<circle cx="'.concat(x(i), '" cy="').concat(y(p.y), '" r="3" fill="var(--ink)" opacity=".55"><title>').concat(fmtDate(p.t), ": ").concat(fmt(p.y)).concat(p.n ? " (" + p.n + " legs)" : "", "</title></circle>")).join("");
+  return '<svg class="chart" viewBox="0 0 '.concat(W, " ").concat(H, '" role="img" aria-label="Trend by ').concat(label, '">').concat(g, '<path d="').concat(area, '" fill="var(--ink)" opacity=".06"/><path d="').concat(path(ys), '" fill="none" stroke="var(--ink)" stroke-width="1.5" opacity=".45"/>').concat(dots, '<path d="').concat(path(ra), '" fill="none" stroke="var(--red)" stroke-width="3" stroke-linejoin="round"/><circle cx="').concat(x(n - 1), '" cy="').concat(y(ra[n - 1]), '" r="5.5" fill="var(--red)"/><text x="').concat(x(n - 1) - 8, '" y="').concat(y(ra[n - 1]) - 10, '" text-anchor="end" style="fill:var(--red);font-weight:700">').concat(fmt(ra[n - 1]), "</text>").concat(xl, '</svg>\n  <div class="legend"><span><i></i>Each ').concat(label.toLowerCase(), '</span><span><i class="a"></i>Rolling average of last ').concat(roll, "</span></div>");
+}
+function bars(items, { fmt = f1, hl } = {}) {
+  if (!items.length) return '<p class="note">Not enough data yet.</p>';
+  const max = Math.max(...items.map((i) => i.v), 1e-9);
+  return '<div class="bars">'.concat(items.map((it, i) => '<div class="bar'.concat(hl === i ? " hl" : "", '"><div class="bv">').concat(fmt(it.v), '</div><div class="bt"><div class="bf" style="height:').concat((it.v / max * 100).toFixed(1), '%"></div></div><div class="bl">').concat(it.l, "</div>").concat(it.n != null ? '<div class="bn">'.concat(it.n, "</div>") : "", "</div>")).join(""), "</div>");
+}
+function wedge(r1, r2, a1, a2) {
+  const p = (r, a) => {
+    const t = a * Math.PI / 180;
+    return [(r * Math.sin(t)).toFixed(2), (-r * Math.cos(t)).toFixed(2)];
+  };
+  const [x1, y1] = p(r2, a1), [x2, y2] = p(r2, a2), [x3, y3] = p(r1, a2), [x4, y4] = p(r1, a1);
+  return "M".concat(x1, " ").concat(y1, "A").concat(r2, " ").concat(r2, " 0 0 1 ").concat(x2, " ").concat(y2, "L").concat(x3, " ").concat(y3, "A").concat(r1, " ").concat(r1, " 0 0 0 ").concat(x4, " ").concat(y4, "Z");
+}
+function boardSVG(seg, total) {
+  const vals = Object.entries(seg).filter(([k]) => k !== "M").map(([, v]) => v), max = Math.max(1, ...vals);
+  const reg = (d, k, base) => {
+    const c = seg[k] || 0, o = c ? (0.12 + 0.88 * Math.pow(c / max, 0.7)).toFixed(2) : 0;
+    return '<path d="'.concat(d, '" fill="').concat(base, '" stroke="var(--bg)" stroke-width=".8"/>').concat(c ? '<path d="'.concat(d, '" fill="var(--heat)" fill-opacity="').concat(o, '"><title>').concat(k.replace("S", "Single ").replace("D", "Double ").replace("T", "Treble "), ": ").concat(c, " (").concat(pct(c, total), ")</title></path>") : "");
+  };
+  let s = "";
+  ORDER.forEach((n, i) => {
+    const a1 = i * 18 - 9, a2 = i * 18 + 9, base = i % 2 ? "var(--w1)" : "var(--w2)";
+    s += reg(wedge(15.9, 99, a1, a2), "S" + n, base) + reg(wedge(99, 107, a1, a2), "T" + n, "var(--surface-2)") + reg(wedge(107, 162, a1, a2), "S" + n, base) + reg(wedge(162, 170, a1, a2), "D" + n, "var(--surface-2)");
+    const t = i * 18 * Math.PI / 180;
+    s += '<text x="'.concat((186 * Math.sin(t)).toFixed(1), '" y="').concat((-186 * Math.cos(t) + 6).toFixed(1), '" text-anchor="middle">').concat(n, "</text>");
+  });
+  const circ = (r, k) => {
+    const c = seg[k] || 0, o = c ? (0.12 + 0.88 * Math.pow(c / max, 0.7)).toFixed(2) : 0;
+    return '<circle r="'.concat(r, '" fill="var(--surface-2)" stroke="var(--bg)" stroke-width=".8"/>').concat(c ? '<circle r="'.concat(r, '" fill="var(--heat)" fill-opacity="').concat(o, '"><title>').concat(k === "DB" ? "Bull" : "Outer bull", ": ").concat(c, " (").concat(pct(c, total), ")</title></circle>") : "");
+  };
+  s += circ(15.9, "SB") + circ(6.35, "DB");
+  return '<svg class="board" viewBox="-205 -205 410 410" role="img" aria-label="Heatmap of where darts landed">'.concat(s, "</svg>");
+}
+let sampleCache = null;
+function hitTest(x, y) {
+  const r = Math.hypot(x, y);
+  if (r <= 6.35) return [25, 2];
+  if (r <= 15.9) return [25, 1];
+  if (r > 170) return [0, 0];
+  let a = Math.atan2(x, y) * 180 / Math.PI;
+  if (a < 0) a += 360;
+  const n = ORDER[Math.round(a / 18) % 20];
+  return [n, r >= 99 && r <= 107 ? 3 : r >= 162 ? 2 : 1];
+}
+function aimFor(rem, left) {
+  if (rem <= 170) {
+    const r = checkout(rem, left, true);
+    if (r) return r[0];
+  }
+  if (rem >= 62) return [20, 3];
+  for (const t of [32, 40, 16, 24, 8]) {
+    const s = rem - t;
+    if (s >= 1 && s <= 20) return [s, 1];
+  }
+  return [20, 1];
+}
+function sampleMatches() {
+  if (sampleCache) return sampleCache;
+  let seed = 20261029;
+  const rng = () => (seed = seed * 1664525 + 1013904223 >>> 0) / 4294967296;
+  const gauss = () => {
+    let u = 0, v = 0;
+    while (!u) u = rng();
+    while (!v) v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  };
+  const P = ["sample-a", "sample-b", "sample-c"], names = { "sample-a": "Sample: Alex", "sample-b": "Sample: Sam", "sample-c": "Sample: Jo" };
+  const pairs = [[P[0], P[1]], [P[1], P[2]], [P[0], P[2]], [P[1], P[0]], [P[2], P[1]], [P[2], P[0]]];
+  let pairN = 0;
+  Object.assign(nameCache, names);
+  const out = [], days = 26, now = Date.now();
+  for (let s = 0; s < days; s++) {
+    const prog = s / (days - 1), day = new Date(now - (days - s) * 1.7 * 864e5);
+    day.setHours(18 + Math.floor(rng() * 3), Math.floor(rng() * 60), 0, 0);
+    clockOverride = day.getTime();
+    let sessionLegs = 0;
+    const nm = 1 + Math.floor(rng() * 2.2);
+    for (let k = 0; k < nm; k++) {
+      const m = newMatch("x01", { start: 501, doubleOut: true, doubleIn: false, legs: 3, mode: "dart" }, pairs[pairN++ % pairs.length].slice(), names);
+      let guard = 0, legsSeen = 1;
+      while (m.status === "live" && guard++ < 4e3) {
+        if (m.legs.length !== legsSeen) {
+          legsSeen = m.legs.length;
+          sessionLegs++;
+        }
+        const st = x01State(m), i = st.turn, pid = m.players[i], run = x01Darts(st.rem[i], true, m.pending, m.settings);
+        const fatigue = Math.max(0, sessionLegs - 5) * 0.6, late = (new Date(clockOverride).getHours() - 18) * 0.5;
+        const sig = (pid === "sample-a" ? 15 - 4 * prog : pid === "sample-b" ? 18 - 1 * prog : 17 - 2 * prog) + fatigue + late + gauss() * 1.2;
+        const [tx, ty] = ((d) => {
+          const [s2, mu] = d;
+          if (s2 === 25) return mu === 2 ? [0, 0] : [0, 11];
+          const a = ORDER.indexOf(s2) * Math.PI / 10, r = mu === 3 ? 103 : mu === 2 ? 166 : 130;
+          return [r * Math.sin(a), r * Math.cos(a)];
+        })(aimFor(run.rem, 3 - m.pending.length));
+        addDart(m, hitTest(tx + gauss() * sig, ty + gauss() * sig));
+        clockOverride += 5e3 + rng() * 4e3;
+      }
+      out.push(m);
+      clockOverride += 18e4;
+    }
+  }
+  clockOverride = null;
+  sampleCache = out;
+  return out;
+}
+function viewStats() {
+  if (Store.mode === "loading") return '<p class="note">Loading\u2026</p>';
+  let ms = matchList().filter((m) => m.legs.some((l) => l.winner)), sample = false;
+  if (!ms.length) {
+    ms = sampleMatches();
+    sample = true;
+  }
+  const f = ui.sf, count = {};
+  ms.forEach((m) => m.players.forEach((p) => count[p] = (count[p] || 0) + 1));
+  const pids = Object.keys(count).sort((a, b) => count[b] - count[a]);
+  if (!pids.includes(f.pid)) f.pid = pids[0];
+  const since = f.period === "all" ? 0 : Date.now() - Number(f.period) * 864e5;
+  const fm = ms.filter((m) => m.game === f.game && m.startedAt >= since && (f.game !== "x01" || f.start === "any" || m.settings.start == f.start));
+  const S = statsFor(f.pid, fm), pname = nameOf(f.pid, ms.find((m) => m.players.includes(f.pid)));
+  const tab = f.tab || "player";
+  const opps = pids.filter((p) => p !== f.pid && ms.some((m) => m.players.includes(p) && m.players.includes(f.pid)));
+  if (!opps.includes(f.vs)) f.vs = opps[0] || null;
+  const pOpt = (k, list, cur) => list.map((p) => '<option value="'.concat(p, '"').concat(p === cur ? " selected" : "", ">").concat(esc(nameOf(p, ms.find((m) => m.players.includes(p)))), "</option>")).join("");
+  let h = '<div class="stack">';
+  if (sample) h += '<div class="banner"><b>Sample data.</b> These charts come from simulated players so you can see what the stats look like. Play a match and your own numbers replace them.</div>';
+  h += '<div class="opts">'.concat([["player", "Player"], ["h2h", "Head to head"], ["rivals", "Rivalries"]].map(([v, l]) => '<button class="opt'.concat(tab === v ? " on" : "", '" data-act="stab" data-v="').concat(v, '">').concat(l, "</button>")).join(""), "</div>");
+  h += '<div class="filters">\n    '.concat(tab !== "rivals" ? '<label class="field"><span class="eyebrow">Player</span><select data-change="sf" data-k="pid" id="sf-pid">'.concat(pOpt("pid", pids, f.pid), "</select></label>") : "", "\n    ").concat(tab === "h2h" ? '<label class="field"><span class="eyebrow">Against</span><select data-change="sf" data-k="vs" id="sf-vs">'.concat(opps.length ? pOpt("vs", opps, f.vs) : "<option>No opponents yet</option>", "</select></label>") : "", '\n    <label class="field"><span class="eyebrow">Game</span><select data-change="sf" data-k="game" id="sf-game">').concat([["x01", "X01"], ["cricket", "Cricket"], ["killer", "Killer"]].map(([v, l]) => '<option value="'.concat(v, '"').concat(v === f.game ? " selected" : "", ">").concat(l, "</option>")).join(""), "</select></label>\n    ").concat(f.game === "x01" ? '<label class="field"><span class="eyebrow">Start</span><select data-change="sf" data-k="start" id="sf-start">'.concat(["any", "301", "501", "701"].map((v) => '<option value="'.concat(v, '"').concat(String(f.start) === v ? " selected" : "", ">").concat(v === "any" ? "Any" : v, "</option>")).join(""), "</select></label>") : "", '\n    <label class="field"><span class="eyebrow">Period</span><select data-change="sf" data-k="period" id="sf-period">').concat([["7", "Last 7 days"], ["30", "Last 30 days"], ["90", "Last 90 days"], ["all", "All time"]].map(([v, l]) => '<option value="'.concat(v, '"').concat(v === f.period ? " selected" : "", ">").concat(l, "</option>")).join(""), "</select></label>\n  </div>");
+  if (tab === "h2h") h += (f.vs ? compareSection(f.pid, f.vs, fm, f.game) : '<div class="panel"><p class="note">'.concat(esc(pname), " hasn't played anyone yet.</p></div>")) + h2hSection(S.opp, f.game);
+  else if (tab === "rivals") h += rivalsSection(fm, f.game);
+  else h += f.game === "x01" ? statsX01(S, pname) : f.game === "cricket" ? statsCricket(S) : statsKiller(S);
+  return h + "</div>";
+}
+const tile = (l, v, s = "") => '<div class="tile"><div class="eyebrow">'.concat(l, '</div><div class="v">').concat(v, "</div>").concat(s ? '<div class="s">'.concat(s, "</div>") : "", "</div>");
+function accuracySection(A, scoring) {
+  if (!A.n) return '<div class="panel"><h3>Accuracy</h3><p class="note">No dart-by-dart data in this selection. Switch score entry to <b>Dart</b> during a match to record where each dart lands.</p></div>';
+  const sc = A.sc, dbls = Object.entries(A.dbl).sort((a, b) => b[1].a - a[1].a);
+  const hits = A.n - A.miss;
+  return '<div class="panel stack"><h3>Accuracy</h3><div class="boardwrap">'.concat(boardSVG(A.seg, A.n), '\n  <div class="stack">\n    <div class="kv"><span>Darts recorded</span><span>').concat(A.n, "</span><span>Trebles</span><span>").concat(pct(A.mult[3], A.n), "</span><span>Doubles (incl. bull)</span><span>").concat(pct(A.mult[2], A.n), "</span><span>Off the board</span><span>").concat(pct(A.miss, A.n), "</span></div>\n    ").concat(scoring && sc.n ? '<div><div class="eyebrow" style="margin-bottom:6px">Scoring darts (above 170)</div><div class="kv"><span>Treble 20</span><span>'.concat(pct(sc.T20, sc.n), "</span><span>20 bed, single or double</span><span>").concat(pct(sc.S20, sc.n), "</span><span>Wide left into the 5</span><span>").concat(pct(sc.b5, sc.n), "</span><span>Wide right into the 1</span><span>").concat(pct(sc.b1, sc.n), "</span><span>Anywhere else</span><span>").concat(pct(sc.other, sc.n), '</span></div><p class="note">Out of ').concat(sc.n, " darts thrown when no finish was on. Misses to the 5 vs the 1 show which way you pull.</p></div>") : "", "\n  </div></div>\n  ").concat(scoring ? dbls.length ? '<div><div class="eyebrow" style="margin-bottom:6px">Doubles when on a finish \xB7 '.concat(A.dH, "/").concat(A.dA, " hit (").concat(pct(A.dH, A.dA), ')</div><div class="tscroll"><table><thead><tr><th>Double</th><th class="num">Darts at it</th><th class="num">Hit</th><th class="num">Rate</th><th></th></tr></thead><tbody>').concat(dbls.map(([k, o]) => "<tr><td>".concat(k === "DB" ? "Bull" : k, '</td><td class="num">').concat(o.a, '</td><td class="num">').concat(o.h, '</td><td class="num">').concat(pct(o.h, o.a), '</td><td style="width:35%"><div class="meter"><b style="width:').concat(o.a ? o.h / o.a * 100 : 0, '%"></b></div></td></tr>')).join(""), "</tbody></table></div></div>") : '<p class="note">No darts thrown at a finishing double yet.</p>' : "", "\n  </div>");
+}
+function statsX01(S, pname) {
+  var _a2;
+  const X = S.X;
+  if (!X.legs) return '<div class="panel"><p class="note">No completed X01 legs for this player in this period.</p></div>';
+  const avg = X.pts / X.d * 3, days = byDay(X.recs), hours = byHour(X.recs), sl = bySessionLeg(X.recs);
+  const bestM = X.perMatch.reduce((a, b) => {
+    var _a3;
+    return b.avg > ((_a3 = a == null ? void 0 : a.avg) != null ? _a3 : -1) ? b : a;
+  }, null), most180 = X.perMatch.reduce((a, b) => {
+    var _a3;
+    return b.m180 > ((_a3 = a == null ? void 0 : a.m180) != null ? _a3 : -1) ? b : a;
+  }, null);
+  const bestDay = days.reduce((a, b) => {
+    var _a3;
+    return b.y > ((_a3 = a == null ? void 0 : a.y) != null ? _a3 : -1) ? b : a;
+  }, null);
+  const perLeg = (n) => X.legs ? (n / X.legs).toFixed(2) + " per leg" : "";
+  const histL = ["0\u201319", "20\u201339", "40\u201359", "60\u201379", "80\u201399", "100\u2013119", "120\u2013139", "140\u2013159", "160\u2013179", "180"];
+  const cos = Object.entries(X.cos).sort((a, b) => b[0] - a[0]).slice(0, 8);
+  let h = '<div class="tiles">\n    '.concat(tile("3-dart average", f2(avg), "".concat(X.d, " darts over ").concat(X.legs, " legs")), "\n    ").concat(tile("First 9 average", f2(X.f9p / X.f9d * 3), "".concat(f1(X.f9p / X.f9d * 3 - avg), " vs overall")), "\n    ").concat(tile("Checkout rate", pct(X.coH, X.coO), "".concat(X.coH, " from ").concat(X.coO, " visits on a finish")), "\n    ").concat(tile("Legs won", pct(X.lw, X.legs), "".concat(X.lw, " of ").concat(X.legs, " \xB7 matches ").concat(X.mw, "\u2013").concat(X.m - X.mw)), "\n    ").concat(tile("Best leg", X.best ? X.best + " darts" : "\u2013", X.best ? "".concat(f2(501 / X.best * 3), " avg-equivalent at 501") : ""), "\n  </div>");
+  h += '<div class="grid2"><div class="panel stack"><h3>Scoring</h3><div class="bands">\n    <div class="band"><div class="v">'.concat(X.b[0], '</div><div class="s">60\u201399<br>').concat(perLeg(X.b[0]), '</div></div>\n    <div class="band"><div class="v">').concat(X.b[1], '</div><div class="s">100\u2013139<br>').concat(perLeg(X.b[1]), '</div></div>\n    <div class="band"><div class="v">').concat(X.b[2], '</div><div class="s">140\u2013179<br>').concat(perLeg(X.b[2]), '</div></div>\n    <div class="band"><div class="v">').concat(X.b[3], '</div><div class="s">180<br>').concat(perLeg(X.b[3]), '</div></div></div>\n    <div><div class="eyebrow" style="margin-bottom:6px">Visit scores \xB7 ').concat(X.v, " visits \xB7 highest ").concat(X.hi, "</div>").concat(bars(X.hist.map((v, i) => ({ l: histL[i], v })), { fmt: (v) => v ? v : "", hl: 9 }), '</div></div>\n  <div class="panel stack"><h3>Personal bests</h3><div class="kv">\n    <span>Best match average</span><span>').concat(bestM ? f2(bestM.avg) + " \xB7 " + fmtDate(bestM.t) : "\u2013", "</span>\n    <span>Best session average</span><span>").concat(bestDay ? f2(bestDay.y) + " \xB7 " + fmtDate(bestDay.t) : "\u2013", "</span>\n    <span>Fewest darts in a leg</span><span>").concat((_a2 = X.best) != null ? _a2 : "\u2013", "</span>\n    <span>Highest visit</span><span>").concat(X.hi, "</span>\n    <span>Highest checkout</span><span>").concat(X.hiCo || "\u2013", "</span>\n    <span>Most 180s in a match</span><span>").concat(most180 && most180.m180 ? most180.m180 + " \xB7 " + fmtDate(most180.t) : "\u2013", "</span></div>\n    ").concat(cos.length ? '<div><div class="eyebrow" style="margin-bottom:6px">Finishes taken out</div><div class="opts">'.concat(cos.map(([k, n]) => '<span class="chip">'.concat(k).concat(n > 1 ? ' <span class="note">\xD7'.concat(n, "</span>") : "", "</span>")).join(""), "</div></div>") : "", "\n  </div></div>");
+  h += '<div class="panel stack"><h3>Average by session</h3>'.concat(lineChart(days, { fmt: f2 }), "</div>");
+  h += '<div class="grid2"><div class="panel stack"><h3>By leg of the session</h3><p class="note">Average for your 1st, 2nd, 3rd leg of each day. A drop later on points to fatigue; a low first leg points to needing a warm-up.</p>'.concat(bars(sl, { fmt: f1 }), '</div>\n  <div class="panel stack"><h3>By time of day</h3><p class="note">Average by the hour each leg started.</p>').concat(bars(hours, { fmt: f1 }), "</div></div>");
+  h += accuracySection(S.A, true);
+  h += h2hSection(S.opp, ui.sf.game);
+  return h;
+}
+function statsCricket(S) {
+  const C = S.C;
+  if (!C.legs) return '<div class="panel"><p class="note">No completed cricket legs for this player in this period.</p></div>';
+  const rounds = C.d / 3;
+  let h = '<div class="tiles">'.concat(tile("Marks per round", f2(C.marks / C.d * 3), "".concat(C.marks, " marks in ").concat(C.d, " darts"))).concat(tile("Legs won", pct(C.lw, C.legs), "".concat(C.lw, " of ").concat(C.legs))).concat(tile("5+ mark rounds", C.r5, pct(C.r5, Math.round(rounds)) + " of rounds")).concat(tile("7+ mark rounds", C.r7)).concat(tile("9-mark rounds", C.r9), "</div>");
+  h += '<div class="grid2"><div class="panel stack"><h3>Marks per round</h3>'.concat(bars(C.rounds.map((v, i) => ({ l: String(i), v })), { fmt: (v) => v ? v : "" }), '</div><div class="panel stack"><h3>MPR by session</h3>').concat(lineChart(byDay(C.recs), { fmt: f2 }), "</div></div>");
+  h += '<div class="panel stack"><h3>MPR by leg of the session</h3>'.concat(bars(bySessionLeg(C.recs), { fmt: f2 }), "</div>");
+  h += accuracySection(S.A, false) + h2hSection(S.opp, ui.sf.game);
+  return h;
+}
+function statsKiller(S) {
+  const K = S.K;
+  if (!K.legs) return '<div class="panel"><p class="note">No completed killer games for this player in this period.</p></div>';
+  let h = '<div class="tiles">'.concat(tile("Games won", pct(K.lw, K.legs), "".concat(K.lw, " of ").concat(K.legs))).concat(tile("Lives taken", K.taken, f1(K.taken / K.legs) + " per game")).concat(tile("Darts to killer", K.toK.length ? f1(K.toK.reduce((a, b) => a + b, 0) / K.toK.length) : "\u2013", "best ".concat(K.toK.length ? Math.min(...K.toK) : "\u2013")), "</div>");
+  const wins = byDay(K.recs.map((r) => ({ t: r.t, p: r.w ? 1 : 0, d: 1 })), 100);
+  h += '<div class="panel stack"><h3>Win rate by session</h3>'.concat(lineChart(wins, { fmt: (v) => v.toFixed(0) + "%" }), "</div>");
+  h += accuracySection(S.A, false) + h2hSection(S.opp, ui.sf.game);
+  return h;
+}
+const formChips = (res) => '<span class="form">'.concat(res.slice(-5).map((x) => '<i class="'.concat(x.r === "W" ? "w" : x.r === "L" ? "l" : "", '" title="').concat(fmtDate(x.t), '">').concat(x.r, "</i>")).join(""), "</span>");
+function h2hSection(opp, game) {
+  const rows = Object.entries(opp).sort((a, b) => b[1].n - a[1].n);
+  if (!rows.length) return "";
+  const metric = game === "x01" ? "avg" : game === "cricket" ? "MPR" : null, fmt = game === "x01" ? f2 : f2;
+  return '<div class="panel stack"><h3>Against each opponent</h3><p class="note">Tap a row for the full side-by-side comparison.'.concat(metric ? " \u201CYou\u201D and \u201CThem\u201D are each player's ".concat(metric, " in the matches you played together.") : "", '</p><div class="tscroll"><table><thead><tr><th>Opponent</th><th class="num">Played</th><th class="num">Won</th><th class="num">Lost</th><th class="num">Win %</th><th class="num">Legs</th>').concat(metric ? '<th class="num">You</th><th class="num">Them</th>' : "", "<th>Last 5</th></tr></thead><tbody>").concat(rows.map(([o, r]) => {
+    const me = r.myD ? r.myP / r.myD * 3 : NaN, th = r.thD ? r.thP / r.thD * 3 : NaN;
+    return '<tr class="click" data-act="vs" data-id="'.concat(o, '"><td><b>').concat(esc(nameOf(o, r.m)), '</b></td><td class="num">').concat(r.n, '</td><td class="num">').concat(r.w, '</td><td class="num">').concat(r.l, '</td><td class="num">').concat(pct(r.w, r.n), '</td><td class="num">').concat(r.lf, "\u2013").concat(r.la, "</td>").concat(metric ? '<td class="num'.concat(me > th ? " better" : "", '">').concat(fmt(me), '</td><td class="num').concat(th > me ? " better" : "", '">').concat(fmt(th), "</td>") : "", "<td>").concat(formChips(r.res), "</td></tr>");
+  }).join(""), "</tbody></table></div></div>");
+}
+function compareSection(a, b, fm, game) {
+  var _a2, _b;
+  const shared = fm.filter((m) => m.players.includes(a) && m.players.includes(b) && m.legs.some((l) => l.winner));
+  const na = nameOf(a, shared[0] || fm.find((m) => m.players.includes(a))), nb = nameOf(b, shared[0] || fm.find((m) => m.players.includes(b)));
+  if (!shared.length) return '<div class="panel"><p class="note">'.concat(esc(na), " and ").concat(esc(nb), " haven't finished a leg against each other in this selection.</p></div>");
+  const A = statsFor(a, shared), B = statsFor(b, shared), avg = (p, d) => d ? p / d * 3 : NaN, mean = (x) => x.length ? x.reduce((s, v) => s + v, 0) / x.length : NaN;
+  let rows;
+  if (game === "x01") rows = [
+    ["Matches won", A.X.mw, B.X.mw, 1, (v) => v],
+    ["Legs won", A.X.lw, B.X.lw, 1, (v) => v],
+    ["3-dart average", avg(A.X.pts, A.X.d), avg(B.X.pts, B.X.d), 1, f2],
+    ["First 9 average", avg(A.X.f9p, A.X.f9d), avg(B.X.f9p, B.X.f9d), 1, f2],
+    ["100+ visits", A.X.b[1] + A.X.b[2] + A.X.b[3], B.X.b[1] + B.X.b[2] + B.X.b[3], 1, (v) => v],
+    ["140+ visits", A.X.b[2] + A.X.b[3], B.X.b[2] + B.X.b[3], 1, (v) => v],
+    ["180s", A.X.b[3], B.X.b[3], 1, (v) => v],
+    ["Checkout rate", A.X.coO ? A.X.coH / A.X.coO : NaN, B.X.coO ? B.X.coH / B.X.coO : NaN, 1, (v) => isFinite(v) ? (v * 100).toFixed(1) + "%" : "\u2013"],
+    ["Double hit rate (dart entry)", A.A.dA ? A.A.dH / A.A.dA : NaN, B.A.dA ? B.A.dH / B.A.dA : NaN, 1, (v) => isFinite(v) ? (v * 100).toFixed(1) + "%" : "\u2013"],
+    ["Highest checkout", A.X.hiCo || NaN, B.X.hiCo || NaN, 1, (v) => isFinite(v) ? v : "\u2013"],
+    ["Best leg (darts)", (_a2 = A.X.best) != null ? _a2 : NaN, (_b = B.X.best) != null ? _b : NaN, -1, (v) => isFinite(v) ? v : "\u2013"],
+    ["Highest visit", A.X.hi, B.X.hi, 1, (v) => v]
+  ];
+  else if (game === "cricket") rows = [
+    ["Matches won", A.C.mw, B.C.mw, 1, (v) => v],
+    ["Legs won", A.C.lw, B.C.lw, 1, (v) => v],
+    ["Marks per round", avg(A.C.marks, A.C.d), avg(B.C.marks, B.C.d), 1, f2],
+    ["5+ mark rounds", A.C.r5, B.C.r5, 1, (v) => v],
+    ["7+ mark rounds", A.C.r7, B.C.r7, 1, (v) => v],
+    ["9-mark rounds", A.C.r9, B.C.r9, 1, (v) => v],
+    ["Trebles hit", A.A.mult[3], B.A.mult[3], 1, (v) => v]
+  ];
+  else rows = [
+    ["Games won", A.K.lw, B.K.lw, 1, (v) => v],
+    ["Lives taken", A.K.taken, B.K.taken, 1, (v) => v],
+    ["Avg darts to killer", mean(A.K.toK), mean(B.K.toK), -1, f1]
+  ];
+  const better = (x, y, dir) => isFinite(x) && isFinite(y) && x !== y && (dir > 0 ? x > y : x < y);
+  const wa = game === "killer" ? A.K.lw : game === "cricket" ? A.C.mw : A.X.mw, wb = game === "killer" ? B.K.lw : game === "cricket" ? B.C.mw : B.X.mw;
+  const recent = shared.slice().sort((x, y) => y.startedAt - x.startedAt).slice(0, 6);
+  return '<div class="panel stack"><div class="vshead"><div><div class="pn">'.concat(esc(na), '</div><div class="vsbig">').concat(wa, '</div></div><div class="vsmid">').concat(game === "killer" ? "games" : "matches", " won<br>").concat(shared.length, ' played together</div><div style="text-align:right"><div class="pn">').concat(esc(nb), '</div><div class="vsbig">').concat(wb, "</div></div></div>\n  ").concat(wa + wb ? '<div class="split"><b style="width:'.concat(wa / (wa + wb) * 100, '%"></b></div>') : "", '\n  <div class="tscroll"><table class="cmp"><thead><tr><th class="num">').concat(esc(na), '</th><th style="text-align:center">In matches against each other</th><th>').concat(esc(nb), "</th></tr></thead><tbody>").concat(rows.map(([l, x, y, dir, fmt]) => '<tr><td class="num'.concat(better(x, y, dir) ? " better" : "", '">').concat(fmt(x), '</td><td style="text-align:center" class="note">').concat(l, '</td><td class="').concat(better(y, x, dir) ? "better" : "", '">').concat(fmt(y), "</td></tr>")).join(""), '</tbody></table></div>\n  <div><div class="eyebrow" style="margin-bottom:6px">Recent meetings</div><div class="log">').concat(recent.map((m) => "<div><span>".concat(fmtDT(m.startedAt)).concat(m.status !== "done" ? " \xB7 unfinished" : "", '</span><span class="score" style="font-size:17px">').concat([a, b].map((p) => {
+    const w = m.legs.filter((l) => l.winner === p).length;
+    return p === m.winner ? "<b>".concat(w, "</b>") : w;
+  }).join(" \u2013 "), "</span></div>")).join(""), "</div></div>\n  </div>");
+}
+function rivalsSection(fm, game) {
+  const done = fm.filter((m) => m.legs.some((l) => l.winner));
+  const ps = [...new Set(done.flatMap((m) => m.players))];
+  if (ps.length < 2) return '<div class="panel"><p class="note">Rivalries appear once two or more players have played each other in this selection.</p></div>';
+  const W = {}, P = {};
+  ps.forEach((a) => {
+    W[a] = {};
+    P[a] = {};
+  });
+  done.filter((m) => m.status === "done" && m.players.length > 1).forEach((m) => m.players.forEach((a) => m.players.forEach((b) => {
+    if (a === b) return;
+    P[a][b] = (P[a][b] || 0) + 1;
+    if (m.winner === a) W[a][b] = (W[a][b] || 0) + 1;
+  })));
+  const ref = (p) => done.find((m) => m.players.includes(p));
+  const board = ps.map((p) => {
+    const s = statsFor(p, done), T = game === "x01" ? s.X : game === "cricket" ? s.C : s.K;
+    const metric = game === "x01" ? s.X.d ? s.X.pts / s.X.d * 3 : NaN : game === "cricket" ? s.C.d ? s.C.marks / s.C.d * 3 : NaN : T.legs ? s.K.taken / T.legs : NaN;
+    const won = game === "killer" ? T.lw : T.mw, played = game === "killer" ? T.legs : T.m;
+    return { p, won, played, metric };
+  }).sort((a, b) => (b.played ? b.won / b.played : 0) - (a.played ? a.won / a.played : 0) || b.metric - a.metric);
+  const mLabel = game === "x01" ? "3-dart avg" : game === "cricket" ? "MPR" : "Lives taken / game";
+  return '<div class="panel stack"><h3>Table</h3><div class="tscroll"><table><thead><tr><th>#</th><th>Player</th><th class="num">Played</th><th class="num">Won</th><th class="num">Win %</th><th class="num">'.concat(mLabel, "</th></tr></thead><tbody>").concat(board.map((r, i) => "<tr><td>".concat(i + 1, "</td><td><b>").concat(esc(nameOf(r.p, ref(r.p))), '</b></td><td class="num">').concat(r.played, '</td><td class="num">').concat(r.won, '</td><td class="num">').concat(pct(r.won, r.played), '</td><td class="num">').concat(f2(r.metric), "</td></tr>")).join(""), '</tbody></table></div></div>\n  <div class="panel stack"><h3>Who\'s beaten who</h3><p class="note">Each cell is how many matches the row player has won against the column player, out of the matches they played together. In matches with three or more players, the winner is counted as beating everyone else. Tap a cell to compare the two players.</p>\n  <div class="tscroll"><table class="matrix"><thead><tr><th>Winner \u2193 \xB7 Opponent \u2192</th>').concat(ps.map((b) => '<th class="num">'.concat(esc(nameOf(b, ref(b))), "</th>")).join(""), "</tr></thead><tbody>").concat(ps.map((a) => "<tr><th>".concat(esc(nameOf(a, ref(a))), "</th>").concat(ps.map((b) => {
+    if (a === b) return '<td class="num note">\u2013</td>';
+    const w = W[a][b] || 0, n = P[a][b] || 0, l = W[b][a] || 0;
+    return '<td class="num'.concat(n ? " click" : "").concat(w > l ? " better" : "", '" ').concat(n ? 'data-act="pair" data-a="'.concat(a, '" data-b="').concat(b, '"') : "", ">").concat(n ? "".concat(w, '<span class="note"> / ').concat(n, "</span>") : '<span class="note">\xB7</span>', "</td>");
+  }).join(""), "</tr>")).join(""), "</tbody></table></div></div>");
+}
+function viewHistory() {
+  if (Store.mode === "loading") return '<p class="note">Loading\u2026</p>';
+  const ms = matchList().reverse();
+  if (!ms.length) return '<div class="panel"><h2>No matches yet</h2><p class="note">Finished and paused matches appear here, newest first. Start one from Play.</p></div>';
+  return '<div class="hist">'.concat(ms.map((m) => {
+    const open = ui.open === m.id;
+    const tally = m.players.map((p) => {
+      const w = m.legs.filter((l) => l.winner === p).length;
+      return p === m.winner ? "<b>".concat(esc(nameOf(p, m)), " ").concat(w, "</b>") : "".concat(esc(nameOf(p, m)), " ").concat(w);
+    }).join(" \u2013 ");
+    let body = "";
+    if (open) {
+      const legs = m.legs.filter((l) => l.winner).map((l, i) => {
+        var _a2;
+        const d = l.visits.filter((v) => v.p === l.winner).reduce((a, v) => a + v.n, 0);
+        return "<tr><td>Leg ".concat(i + 1, "</td><td>").concat(esc(nameOf(l.winner, m)), '</td><td class="num">').concat(d, " darts</td>").concat(m.game === "x01" ? '<td class="num">'.concat((_a2 = (l.visits.slice(-1)[0] || {}).rem) != null ? _a2 : "", " out</td>") : "<td></td>", "</tr>");
+      }).join("");
+      const per = m.players.map((p) => {
+        const s = statsFor(p, [m]);
+        return m.game === "x01" ? "".concat(esc(nameOf(p, m)), " ").concat(f2(s.X.pts / s.X.d * 3)) : m.game === "cricket" ? "".concat(esc(nameOf(p, m)), " ").concat(f2(s.C.marks / s.C.d * 3), " MPR") : "".concat(esc(nameOf(p, m)), " ").concat(s.K.taken, " lives taken");
+      }).join(" \xB7 ");
+      body = '<div class="hbody"><div class="note">'.concat(m.game === "x01" ? "Averages: " : "").concat(per, "</div>").concat(legs ? '<div class="tscroll"><table><tbody>'.concat(legs, "</tbody></table></div>") : "", '\n      <div class="row">').concat(m.status === "live" ? '<button class="btn" data-act="resume" data-id="'.concat(m.id, '">Resume</button>') : "", "\n      ").concat(ui.confirm === "del:" + m.id ? '<span>Delete this match for good?</span><button class="btn danger" data-act="delmatch" data-id="'.concat(m.id, '">Delete</button><button class="btn" data-act="noconfirm">Keep</button>') : '<button class="btn danger" data-act="askdel" data-id="'.concat(m.id, '">Delete</button>'), "</div></div>");
+    }
+    return '<div class="hrow"><button class="hhead" data-act="openm" data-id="'.concat(m.id, '"><div><div class="eyebrow">').concat(fmtDT(m.startedAt), " \xB7 ").concat(esc(gameLabel(m)), '</div><div class="score">').concat(tally, "</div></div>").concat(m.status === "live" ? '<span class="badge live">Unfinished</span>' : "", "</button>").concat(body, "</div>");
+  }).join(""), "</div>");
+}
+function viewPlayers() {
+  if (Store.mode === "loading") return '<p class="note">Loading\u2026</p>';
+  const ms = matchList(), roster = Object.values(Store.players).sort((a, b) => a.name.localeCompare(b.name));
+  return '<div class="panel stack"><h2>Players</h2>\n  <form data-form="addp" class="row"><input type="text" id="newp2" placeholder="New player name" maxlength="24" autocomplete="off"><button class="btn primary">Add player</button></form>\n  '.concat(roster.length ? '<div class="tscroll"><table><thead><tr><th>Name</th><th class="num">Matches</th><th class="num">X01 avg</th><th></th></tr></thead><tbody>'.concat(roster.map((p) => {
+    const mine = ms.filter((m) => m.players.includes(p.id)), X = statsFor(p.id, mine.filter((m) => m.game === "x01")).X;
+    const name = ui.renaming === p.id ? '<form data-form="rename" data-id="'.concat(p.id, '" class="row"><input type="text" id="rn-').concat(p.id, '" value="').concat(esc(p.name), '" maxlength="24"><button class="btn">Save</button></form>') : esc(p.name);
+    return "<tr><td>".concat(name, '</td><td class="num">').concat(mine.length, '</td><td class="num">').concat(X.d ? f2(X.pts / X.d * 3) : "\u2013", '</td><td class="num"><span class="row" style="justify-content:flex-end">').concat(ui.renaming === p.id ? "" : '<button class="btn" data-act="rename" data-id="'.concat(p.id, '">Rename</button>')).concat(mine.length ? "" : '<button class="btn danger" data-act="delp" data-id="'.concat(p.id, '">Remove</button>'), "</span></td></tr>");
+  }).join(""), "</tbody></table></div>") : '<p class="note">Add everyone who plays. Names are shared with anyone who opens this page.</p>', "\n  </div>").concat(Store.mode === "local" ? backupPanel() : "");
+}
+function backupPanel() {
+  let size = 0;
+  try {
+    size = (localStorage.getItem(LS) || "").length;
+  } catch (e) {
+  }
+  return '<div class="panel stack" style="margin-top:18px"><h3>Backup</h3>\n  <p class="note">Your scores are saved on this device only: '.concat(Object.keys(Store.matches).length, " matches, ").concat(Math.round(size / 1024), ' KB of roughly 5,000 KB available. Every so often, copy a backup and paste it into an email to yourself or the Notes app. If the device is reset or replaced, paste it below to restore everything.</p>\n  <div class="row"><button class="btn primary" data-act="exportb">Copy backup</button></div>\n  <textarea id="bk" rows="4" placeholder="Paste a backup here to restore it" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>\n  <div class="row"><button class="btn" data-act="importb">Restore from pasted backup</button></div></div>');
+}
+function changed() {
+  saveMatch(live);
+  render();
+}
+function enterScore(score) {
+  const m = live, S = m.settings, st = x01State(m), i = st.turn, r = st.rem[i];
+  ui.entry = "";
+  if (!(score >= 0 && score <= 180) || NO_VISIT.has(score)) {
+    toast("".concat(score, " isn't possible with three darts"));
+    return render();
+  }
+  const nr = r - score;
+  if (nr === 0) {
+    if (!checkout(r, 3, S.doubleOut)) {
+      toast("".concat(r, " can't be finished in three darts"));
+      return render();
+    }
+    ui.askDarts = score;
+    return render();
+  }
+  const bust = nr < 0 || S.doubleOut && nr === 1;
+  commit(m, { p: m.players[i], score: bust ? 0 : score, bust, n: 3, co: false, rem: r, opened: st.opened[i] || score > 0 }, null);
+  changed();
+}
+const ACTS = {
+  nav: (d) => {
+    ui.view = d.v;
+    ui.confirm = null;
+    render();
+    window.scrollTo(0, 0);
+  },
+  set: (d) => {
+    ui.setup[d.k] = isNaN(+d.v) ? d.v : +d.v;
+    remember();
+    render();
+  },
+  tog: (d) => {
+    ui.setup[d.k] = !ui.setup[d.k];
+    remember();
+    render();
+  },
+  pick: (d) => {
+    const s = ui.setup, k = s.players.indexOf(d.id);
+    k >= 0 ? s.players.splice(k, 1) : s.players.push(d.id);
+    ensureNumbers();
+    remember();
+    render();
+  },
+  shuffleorder: () => {
+    const a = ui.setup.players;
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    render();
+  },
+  shufflenums: () => {
+    ui.setup.numbers = {};
+    ensureNumbers();
+    render();
+  },
+  start: () => {
+    const s = ui.setup;
+    if (!s.players.length) return;
+    let settings;
+    if (s.game === "x01") settings = { start: s.start, doubleOut: s.doubleOut, doubleIn: s.doubleIn, legs: s.legs, mode: s.mode };
+    else if (s.game === "cricket") settings = { legs: s.legs };
+    else {
+      ensureNumbers();
+      if (new Set(s.players.map((p) => s.numbers[p])).size < s.players.length) return toast("Each player needs a different number");
+      settings = { legs: s.legs, lives: s.lives, trebles: s.trebles, suicide: s.suicide, numbers: Object.fromEntries(s.players.map((p) => [p, s.numbers[p]])) };
+    }
+    live = newMatch(s.game, settings, s.players.slice(), Object.fromEntries(s.players.map((p) => {
+      var _a2;
+      return [p, ((_a2 = Store.players[p]) == null ? void 0 : _a2.name) || "Player"];
+    })));
+    ui.entry = "";
+    ui.mult = 1;
+    ui.askDarts = null;
+    changed();
+  },
+  resume: (d) => {
+    const m = matchList().find((x) => x.id === d.id);
+    if (!m) return;
+    live = plain(m);
+    live.pending = live.pending || [];
+    ui.view = "play";
+    ui.entry = "";
+    ui.askDarts = null;
+    render();
+  },
+  leave: () => {
+    live = null;
+    ui.confirm = null;
+    render();
+  },
+  askabandon: () => {
+    ui.confirm = "abandon";
+    render();
+  },
+  noconfirm: () => {
+    ui.confirm = null;
+    render();
+  },
+  abandon: () => {
+    const id = live.id;
+    live = null;
+    ui.confirm = null;
+    deleteMatch(id);
+    render();
+  },
+  mode: (d) => {
+    if (live.pending.length) return;
+    live.settings.mode = d.v;
+    ui.entry = "";
+    changed();
+  },
+  mult: (d) => {
+    const v = +d.v;
+    ui.mult = ui.mult === v ? 1 : v;
+    render();
+  },
+  dart: (d) => {
+    const v = +d.v, dd = v === 0 ? [0, 0] : v === 25 ? [25, 1] : v === 50 ? [25, 2] : [v, ui.mult];
+    ui.mult = 1;
+    addDart(live, dd);
+    changed();
+  },
+  key: (d) => {
+    if (d.v === "back") ui.entry = ui.entry.slice(0, -1);
+    else if (ui.entry.length < 3) ui.entry = (ui.entry + d.v).replace(/^0+(?=\d)/, "");
+    render();
+  },
+  quick: (d) => enterScore(+d.v),
+  enter: () => {
+    if (ui.entry === "") return;
+    enterScore(+ui.entry);
+  },
+  bust: () => {
+    const st = x01State(live), i = st.turn;
+    ui.entry = "";
+    commit(live, { p: live.players[i], score: 0, bust: true, n: 3, co: false, rem: st.rem[i], opened: st.opened[i] }, null);
+    changed();
+  },
+  out: () => {
+    const st = x01State(live);
+    ui.entry = "";
+    ui.askDarts = st.rem[st.turn];
+    render();
+  },
+  codarts: (d) => {
+    const st = x01State(live), i = st.turn, r = st.rem[i];
+    ui.askDarts = null;
+    commit(live, { p: live.players[i], score: r, bust: false, n: +d.v, co: true, rem: r, opened: true }, live.players[i]);
+    changed();
+  },
+  cancelask: () => {
+    ui.askDarts = null;
+    render();
+  },
+  undo: () => {
+    ui.askDarts = null;
+    ui.entry = "";
+    if (undo(live)) changed();
+    else render();
+  },
+  rematch: () => {
+    const m = live;
+    live = newMatch(m.game, plain(m.settings), [...m.players.slice(1), m.players[0]], m.names);
+    changed();
+  },
+  exportb: () => {
+    const ta = $("#bk");
+    ta.value = JSON.stringify({ app: "oche-ledger", v: 1, saved: Date.now(), players: Store.players, matches: Store.matches });
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch (e) {
+    }
+    if (ok) toast("Backup copied. Paste it into an email or note.");
+    else if (navigator.clipboard) navigator.clipboard.writeText(ta.value).then(() => toast("Backup copied. Paste it into an email or note."), () => toast("Select the text in the box and copy it."));
+    else toast("Select the text in the box and copy it.");
+  },
+  importb: () => {
+    let j;
+    try {
+      j = JSON.parse($("#bk").value.trim());
+    } catch (e) {
+      return toast("That isn\u2019t a valid backup. Paste the whole thing, from { to }.");
+    }
+    if (!j || j.app !== "oche-ledger" || typeof j.matches !== "object") return toast("That isn\u2019t an Oche Ledger backup.");
+    const before = Object.keys(Store.matches).length;
+    Object.assign(Store.players, j.players || {});
+    Object.assign(Store.matches, j.matches);
+    saveLocal();
+    toast("Restored. ".concat(Object.keys(Store.matches).length - before, " matches added, ").concat(Object.keys(j.matches).length, " in the backup."));
+    render();
+  },
+  stab: (d) => {
+    ui.sf.tab = d.v;
+    remember();
+    render();
+  },
+  vs: (d) => {
+    ui.sf.vs = d.id;
+    ui.sf.tab = "h2h";
+    remember();
+    render();
+    window.scrollTo(0, 0);
+  },
+  pair: (d) => {
+    ui.sf.pid = d.a;
+    ui.sf.vs = d.b;
+    ui.sf.tab = "h2h";
+    remember();
+    render();
+    window.scrollTo(0, 0);
+  },
+  openm: (d) => {
+    ui.open = ui.open === d.id ? null : d.id;
+    ui.confirm = null;
+    render();
+  },
+  askdel: (d) => {
+    ui.confirm = "del:" + d.id;
+    render();
+  },
+  delmatch: (d) => {
+    ui.confirm = null;
+    ui.open = null;
+    deleteMatch(d.id);
+    render();
+  },
+  rename: (d) => {
+    ui.renaming = d.id;
+    render();
+    const i = $("#rn-" + d.id);
+    i && i.focus();
+  },
+  delp: (d) => {
+    deletePlayer(d.id);
+    render();
+  }
+};
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-act]");
+  if (!b || b.disabled) return;
+  const f = ACTS[b.dataset.act];
+  if (f) {
+    e.preventDefault();
+    f(b.dataset, b);
+  }
+});
+document.addEventListener("change", (e) => {
+  const t = e.target, k = t.dataset.change;
+  if (!k) return;
+  if (k === "sf") {
+    ui.sf[t.dataset.k] = t.value;
+    remember();
+    render();
+  }
+  if (k === "knum") {
+    const n = +t.value, s = ui.setup, clash = Object.keys(s.numbers).find((p) => p !== t.dataset.id && s.numbers[p] === n);
+    if (clash) s.numbers[clash] = s.numbers[t.dataset.id];
+    s.numbers[t.dataset.id] = n;
+    render();
+  }
+});
+document.addEventListener("submit", (e) => {
+  const f = e.target.closest("form[data-form]");
+  if (!f) return;
+  e.preventDefault();
+  const inp = f.querySelector("input"), name = inp.value.trim().slice(0, 24);
+  if (!name) return;
+  if (f.dataset.form === "addp") {
+    if (Object.values(Store.players).some((p2) => p2.name.toLowerCase() === name.toLowerCase())) return toast("".concat(name, " is already a player"));
+    const p = { id: uid(), name, createdAt: Date.now() };
+    savePlayer(p);
+    ui.setup.players.push(p.id);
+    ensureNumbers();
+    remember();
+    inp.value = "";
+    render();
+  } else if (f.dataset.form === "rename") {
+    const p = Store.players[f.dataset.id];
+    if (p) {
+      savePlayer({ ...p, name });
+    }
+    ui.renaming = null;
+    render();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (ui.view !== "play" || !live || live.status !== "live" || live.game !== "x01" || live.settings.mode !== "visit") return;
+  if (e.target.matches("input,select,textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (ui.askDarts != null) {
+    if (/^[123]$/.test(e.key)) {
+      const b = document.querySelector('[data-act="codarts"][data-v="'.concat(e.key, '"]'));
+      if (b && !b.disabled) ACTS.codarts({ v: e.key });
+    } else if (e.key === "Escape") ACTS.cancelask();
+    return;
+  }
+  if (/^\d$/.test(e.key)) ACTS.key({ v: e.key });
+  else if (e.key === "Backspace") ACTS.key({ v: "back" });
+  else if (e.key === "Enter") ACTS.enter();
+  else if (e.key === "u") ACTS.undo();
+  else return;
+  e.preventDefault();
+});
+try {
+  (_a = navigator.wakeLock) == null ? void 0 : _a.request("screen").catch(() => {
+  });
+} catch (e) {
+}
+render();
+initStore();
+
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(function(){});
+</script>
+</body>
+</html>
