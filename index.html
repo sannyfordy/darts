@@ -566,6 +566,8 @@ function addDart(m, d) {
   } else if (m.game === "cricket") {
     const st = crState(m);
     if (n === 3 || st.winner >= 0) commit(m, { p: P[st.turn], darts: m.pending.slice(), n, marks: st.pm, pts: st.pp }, st.winner >= 0 ? P[st.winner] : null);
+  } else if (m.game === "training") {
+    trAddDart(m);
   } else {
     const st = kiState(m);
     if (n === 3 || st.winner >= 0 || st.lives[st.turn] <= 0) commit(m, { p: P[st.turn], darts: m.pending.slice(), n, taken: st.pt, bi: st.pb, self: st.ps }, st.winner >= 0 ? P[st.winner] : null);
@@ -591,6 +593,122 @@ function undo(m) {
   if (!v) return false;
   if (v.darts) m.pending = v.darts.slice(0, -1);
   return true;
+}
+const DRILLS = { rtc: "Round the Clock", bobs: "Bob\u2019s 27", checkout: "Checkout practice", target: "Target practice" };
+const CO_RANGES = { low: [2, 40, "2\u201340"], mid: [41, 100, "41\u2013100"], high: [101, 170, "101\u2013170"], all: [2, 170, "2\u2013170"] };
+const TARGETS = [["T20", "T20"], ["T19", "T19"], ["T18", "T18"], ["D20", "D20"], ["D16", "D16"], ["D8", "D8"], ["D12", "D12"], ["D10", "D10"], ["DB", "Bull"], ["B", "Any bull"]];
+const BOBS = Array.from({ length: 20 }, (_, i) => i + 1).concat([25]);
+const rtcTargets = (S) => {
+  const t = Array.from({ length: 20 }, (_, i) => i + 1);
+  if (S.bull) t.push(25);
+  return t;
+};
+const rtcHit = (S, t, d) => d[0] === t && (S.ring === "double" ? d[1] === 2 : S.ring === "treble" ? t === 25 ? d[1] === 2 : d[1] === 3 : true);
+const rtcLabel = (S, t) => t === 25 ? "Bull" : (S.ring === "double" ? "D" : S.ring === "treble" ? "T" : "") + t;
+const tgtHit = (t, d) => t === "B" ? d[0] === 25 : dkey(d) === t;
+const tgtBed = (t, d) => t === "B" || t === "DB" ? d[0] === 25 : d[0] === +t.slice(1);
+const tgtLabel = (t) => (TARGETS.find((x) => x[0] === t) || [t, t])[1];
+function drillLabel(S) {
+  if (S.drill === "rtc") return "".concat(DRILLS.rtc, " \xB7 ").concat({ any: "any segment", double: "doubles", treble: "trebles" }[S.ring]).concat(S.bull ? " + bull" : "");
+  if (S.drill === "bobs") return DRILLS.bobs;
+  if (S.drill === "checkout") return "".concat(DRILLS.checkout, " \xB7 ").concat(CO_RANGES[S.range][2], " \xB7 ").concat(S.targets.length, " finishes \xB7 ").concat(S.visits * 3, " darts each");
+  return "".concat(DRILLS.target, " \xB7 ").concat(tgtLabel(S.target), " \xB7 ").concat(S.count, " darts");
+}
+function coTargets(range, n) {
+  const [lo, hi] = CO_RANGES[range], out = [];
+  while (out.length < n) {
+    const t = lo + Math.floor(Math.random() * (hi - lo + 1));
+    if (checkout(t, 3, true)) out.push(t);
+  }
+  return out;
+}
+function trState(m) {
+  const S = m.settings, vs = m.legs[0].visits, st = { drill: S.drill, darts: 0, done: false };
+  if (S.drill === "rtc") {
+    const T = rtcTargets(S), att = T.map(() => 0), hit = T.map(() => 0);
+    let i = 0;
+    const feed = (d) => {
+      if (i >= T.length) return;
+      att[i]++;
+      st.darts++;
+      if (rtcHit(S, T[i], d)) {
+        hit[i]++;
+        i++;
+      }
+    };
+    vs.forEach((v) => v.darts.forEach(feed));
+    m.pending.forEach(feed);
+    Object.assign(st, { T, i, att, hit, done: i >= T.length, target: i < T.length ? rtcLabel(S, T[i]) : "" });
+  } else if (S.drill === "bobs") {
+    let score = 27, r = 0, failed = false;
+    const hits = [];
+    vs.forEach((v) => {
+      const t2 = BOBS[r], val = t2 === 25 ? 50 : 2 * t2, h = v.darts.filter((d) => d[0] === t2 && d[1] === 2).length;
+      score += h ? h * val : -val;
+      hits.push(h);
+      r++;
+      st.darts += v.n;
+      if (score <= 0 && S.stopZero) failed = true;
+    });
+    const t = BOBS[r];
+    Object.assign(st, { score, r, hits, failed, done: failed || r >= BOBS.length, target: t === 25 ? "Bull" : t ? "D" + t : "", ph: t ? m.pending.filter((d) => d[0] === t && d[1] === 2).length : 0 });
+  } else if (S.drill === "checkout") {
+    const tg = S.targets, res = [];
+    let a = 0, vis = 0, ad = 0, rem = tg[0];
+    vs.forEach((v) => {
+      const r = x01Darts(rem, true, v.darts, { doubleOut: true });
+      ad += v.n;
+      vis++;
+      st.darts += v.n;
+      if (r.co || vis >= S.visits) {
+        res.push({ t: tg[a], ok: r.co, darts: ad });
+        a++;
+        vis = 0;
+        ad = 0;
+        rem = tg[a];
+      } else rem = r.rem;
+    });
+    const done = a >= tg.length;
+    Object.assign(st, { a, vis, rem, res, done, target: done ? null : tg[a], run: done ? null : x01Darts(rem, true, m.pending, { doubleOut: true }) });
+  } else {
+    let n = 0, h = 0, bed = 0, pts = 0;
+    const feed = (d) => {
+      if (n >= S.count) return;
+      n++;
+      st.darts++;
+      if (tgtHit(S.target, d)) h++;
+      if (tgtBed(S.target, d)) bed++;
+      pts += dv(d);
+    };
+    vs.forEach((v) => v.darts.forEach(feed));
+    m.pending.forEach(feed);
+    Object.assign(st, { n, h, bed, pts, done: n >= S.count, target: tgtLabel(S.target) });
+  }
+  return st;
+}
+function trAddDart(m) {
+  const S = m.settings, st = trState(m), n = m.pending.length;
+  const end = n === 3 || st.done || S.drill === "checkout" && st.run && (st.run.bust || st.run.co);
+  if (!end) return;
+  commit(m, { p: m.players[0], darts: m.pending.slice(), n }, null);
+  if (trState(m).done) {
+    const leg = m.legs[0];
+    leg.winner = m.players[0];
+    leg.endedAt = clock();
+    m.status = "done";
+    m.winner = m.players[0];
+    m.endedAt = clock();
+  }
+}
+function trSummary(m) {
+  const st = trState(m), S = m.settings;
+  if (S.drill === "rtc") return st.done ? "".concat(st.darts, " darts") : "".concat(st.i, " of ").concat(st.T.length, " targets");
+  if (S.drill === "bobs") return st.failed ? "Out on ".concat(BOBS[st.r - 1] === 25 ? "Bull" : "D" + BOBS[st.r - 1], " \xB7 score ").concat(st.score) : st.done ? "Score ".concat(st.score) : "Score ".concat(st.score, " after ").concat(st.r, " rounds");
+  if (S.drill === "checkout") {
+    const ok = st.res.filter((r) => r.ok).length;
+    return "".concat(ok, " of ").concat(st.res.length, " finished");
+  }
+  return "".concat(st.h, " of ").concat(st.n, " hits (").concat(pct(st.h, st.n), ")");
 }
 const Store = { mode: "loading", db: null, canWrite: true, players: {}, matches: {}, inflight: {}, dirty: {} };
 const LS = "oche-ledger-v1";
@@ -698,7 +816,13 @@ async function deletePlayer(id) {
 function matchList() {
   const o = { ...Store.matches };
   if (live) o[live.id] = live;
-  return Object.values(o).filter((m) => m && m.legs).sort((a, b) => a.startedAt - b.startedAt);
+  return Object.values(o).filter(validMatch).sort((a, b) => a.startedAt - b.startedAt);
+}
+function validMatch(m) {
+  if (!m || !Array.isArray(m.legs) || !m.legs.length || !Array.isArray(m.players) || !m.settings) return false;
+  if (m.game !== "training") return true;
+  const S = m.settings;
+  return !!DRILLS[S.drill] && (S.drill !== "checkout" || Array.isArray(S.targets) && S.targets.length > 0 && S.visits > 0) && (S.drill !== "target" || typeof S.target === "string" && S.count > 0);
 }
 const nameOf = (pid, m) => {
   var _a2, _b;
@@ -714,7 +838,28 @@ const ui = {
   confirm: null,
   open: null,
   renaming: null,
-  setup: { game: "x01", start: 501, doubleOut: true, doubleIn: false, legs: 3, mode: "visit", players: [], lives: 3, trebles: false, suicide: true, numbers: {} },
+  setup: {
+    game: "x01",
+    start: 501,
+    doubleOut: true,
+    doubleIn: false,
+    legs: 3,
+    mode: "visit",
+    players: [],
+    lives: 3,
+    trebles: false,
+    suicide: true,
+    numbers: {},
+    drill: "rtc",
+    ring: "any",
+    bull: true,
+    stopZero: true,
+    coRange: "mid",
+    coVisits: 3,
+    coCount: 10,
+    tgt: "T20",
+    tgtCount: 60
+  },
   sf: { pid: null, game: "x01", period: "all", start: "any" }
 };
 try {
@@ -737,7 +882,11 @@ function render() {
   st.className = "store " + ({ cloud: "cloud", ro: "ro" }[Store.mode] || "");
   st.lastChild.textContent = { loading: "Loading", local: "Saved on this device", cloud: "Synced", ro: "View only" }[Store.mode];
   const v = $("#view");
-  v.innerHTML = ui.view === "play" ? viewPlay() : ui.view === "stats" ? viewStats() : ui.view === "history" ? viewHistory() : viewPlayers();
+  try {
+    v.innerHTML = ui.view === "play" ? viewPlay() : ui.view === "stats" ? viewStats() : ui.view === "history" ? viewHistory() : viewPlayers();
+  } catch (e) {
+    v.innerHTML = '<div class="panel stack"><h3>Something went wrong</h3><p class="note">This page couldn\u2019t be drawn. Your saved scores are not affected. Try another tab, or send a screenshot of this message.</p><p class="note">'.concat(esc(e && e.message), "</p></div>");
+  }
 }
 function softRender() {
   const a = document.activeElement;
@@ -746,6 +895,7 @@ function softRender() {
 }
 function gameLabel(m) {
   const S = m.settings, ft = "first to ".concat(S.legs);
+  if (m.game === "training") return "Training \xB7 " + drillLabel(S);
   if (m.game === "x01") return "".concat(S.start, " \xB7 ").concat(ft, " \xB7 ").concat(S.doubleIn ? "double in \xB7 " : "").concat(S.doubleOut ? "double out" : "straight out");
   if (m.game === "cricket") return "Cricket \xB7 ".concat(ft);
   return "Killer \xB7 ".concat(S.lives, " lives \xB7 ").concat(ft);
@@ -764,17 +914,31 @@ function viewSetup() {
   let h = '<div class="stack">';
   if (Store.mode === "ro") h += '<div class="banner">You have view-only access. You can browse stats and history, but new matches won\'t be saved.</div>';
   if (resumes.length) h += '<div class="panel stack"><h3>Unfinished matches</h3>'.concat(resumes.map((m) => {
-    const tally = m.players.map((p) => "".concat(esc(nameOf(p, m)), " ").concat(m.legs.filter((l) => l.winner === p).length)).join(" \u2013 ");
+    const tally = m.game === "training" ? "".concat(esc(nameOf(m.players[0], m)), " \xB7 ").concat(trSummary(m)) : m.players.map((p) => "".concat(esc(nameOf(p, m)), " ").concat(m.legs.filter((l) => l.winner === p).length)).join(" \u2013 ");
     return '<div class="resume"><div><div class="eyebrow">'.concat(esc(gameLabel(m)), " \xB7 ").concat(fmtDT(m.startedAt), '</div><div class="score">').concat(tally, '</div></div><div class="row"><button class="btn" data-act="resume" data-id="').concat(m.id, '">Resume</button></div></div>');
   }).join(""), "</div>");
-  h += '<div class="panel stack"><h2>New match</h2>\n  <div class="field"><span class="eyebrow">Game</span><div class="opts">'.concat(opt("game", "x01", s.game, "X01")).concat(opt("game", "cricket", s.game, "Cricket")).concat(opt("game", "killer", s.game, "Killer"), '</div></div>\n  <div class="fields">');
+  h += '<div class="panel stack"><h2>New match</h2>\n  <div class="field"><span class="eyebrow">Game</span><div class="opts">'.concat(opt("game", "x01", s.game, "X01")).concat(opt("game", "cricket", s.game, "Cricket")).concat(opt("game", "killer", s.game, "Killer")).concat(opt("game", "training", s.game, "Training"), '</div></div>\n  <div class="fields">');
+  if (s.game === "training") {
+    h += '<div class="field"><span class="eyebrow">Drill</span><div class="opts">'.concat(Object.keys(DRILLS).map((k) => opt("drill", k, s.drill, DRILLS[k])).join(""), '</div><span class="note">').concat({
+      rtc: "Hit every number from 1 to 20 in order. A hit moves you on to the next number.",
+      bobs: "Three darts at each double, D1 to D20, then the bull. You start on 27. Each hit adds the double\u2019s value; a round with no hits takes it away.",
+      checkout: "You get a random finish and a set number of darts to take it out on a double. Suggested routes are shown as you go.",
+      target: "A set number of darts at one target. Tracks your hit rate and where the misses land."
+    }[s.drill], "</span></div>");
+    if (s.drill === "rtc") h += '<div class="field"><span class="eyebrow">What counts</span><div class="opts">'.concat(opt("ring", "any", s.ring, "Any segment")).concat(opt("ring", "double", s.ring, "Doubles only")).concat(opt("ring", "treble", s.ring, "Trebles only"), '</div><div class="opts">').concat(tog("bull", s.bull, "Finish on the bull"), "</div></div>");
+    if (s.drill === "bobs") h += '<div class="field"><span class="eyebrow">Rules</span><div class="opts">'.concat(tog("stopZero", s.stopZero, "Game over at zero or below"), "</div></div>");
+    if (s.drill === "checkout") h += '<div class="field"><span class="eyebrow">Finishes</span><div class="opts">'.concat(Object.keys(CO_RANGES).map((k) => opt("coRange", k, s.coRange, CO_RANGES[k][2])).join(""), '</div></div>\n      <div class="field"><span class="eyebrow">Darts per finish</span><div class="opts">').concat([1, 2, 3].map((n) => opt("coVisits", n, s.coVisits, n * 3 + " darts")).join(""), '</div></div>\n      <div class="field"><span class="eyebrow">Number of finishes</span><div class="opts">').concat([5, 10, 20].map((n) => opt("coCount", n, s.coCount, n)).join(""), "</div></div>");
+    if (s.drill === "target") h += '<div class="field"><span class="eyebrow">Target</span><div class="opts">'.concat(TARGETS.map(([k, l]) => opt("tgt", k, s.tgt, l)).join(""), '</div></div>\n      <div class="field"><span class="eyebrow">Darts</span><div class="opts">').concat([30, 60, 99].map((n) => opt("tgtCount", n, s.tgtCount, n)).join(""), "</div></div>");
+  }
   if (s.game === "x01") {
     h += '<div class="field"><span class="eyebrow">Start score</span><div class="opts">'.concat([301, 501, 701].map((n) => opt("start", n, s.start, n)).join(""), '</div></div>\n    <div class="field"><span class="eyebrow">Rules</span><div class="opts">').concat(tog("doubleOut", s.doubleOut, "Double out")).concat(tog("doubleIn", s.doubleIn, "Double in"), '</div></div>\n    <div class="field"><span class="eyebrow">Score entry</span><div class="opts">').concat(opt("mode", "visit", s.mode, "Visit totals")).concat(opt("mode", "dart", s.mode, "Dart by dart"), '</div><span class="note">Dart by dart records every segment, which unlocks the accuracy heatmap and per-double hit rates. You can switch during a match.</span></div>');
   }
   if (s.game === "killer") {
     h += '<div class="field"><span class="eyebrow">Lives</span><div class="opts">'.concat([3, 5].map((n) => opt("lives", n, s.lives, n)).join(""), '</div></div>\n    <div class="field"><span class="eyebrow">Rules</span><div class="opts">').concat(tog("trebles", s.trebles, "Treble takes 2 lives")).concat(tog("suicide", s.suicide, "Own double costs a life"), '</div><span class="note">Hit your own double to become a killer. Killers take a life with each double of an opponent\'s number.</span></div>');
   }
-  h += '<div class="field"><span class="eyebrow">Match length</span><div class="opts">'.concat([1, 2, 3, 4, 5, 7].map((n) => opt("legs", n, s.legs, "First to " + n)).join(""), '</div></div></div>\n  <div class="field"><span class="eyebrow">Players \xB7 tap in throwing order</span>\n    <div class="opts">').concat(roster.map((p) => {
+  const tr = s.game === "training";
+  if (tr && s.players.length > 1) s.players = s.players.slice(0, 1);
+  h += "".concat(tr ? "" : '<div class="field"><span class="eyebrow">Match length</span><div class="opts">'.concat([1, 2, 3, 4, 5, 7].map((n) => opt("legs", n, s.legs, "First to " + n)).join(""), "</div></div>"), '</div>\n  <div class="field"><span class="eyebrow">').concat(tr ? "Who is practising" : "Players \xB7 tap in throwing order", '</span>\n    <div class="opts">').concat(roster.map((p) => {
     const k = s.players.indexOf(p.id);
     return '<button class="chip'.concat(k >= 0 ? " on" : "", '" data-act="pick" data-id="').concat(p.id, '">').concat(k >= 0 ? "<b>".concat(k + 1, "</b>") : "").concat(esc(p.name), "</button>");
   }).join("") || '<span class="note">No players yet. Add the first one below.</span>', '</div>\n    <form data-form="addp" class="row"><input type="text" id="newp" placeholder="Add a player" maxlength="24" autocomplete="off"><button class="btn">Add</button></form>\n  </div>');
@@ -785,8 +949,16 @@ function viewSetup() {
     }).join(""), '<button class="btn" data-act="shufflenums">Shuffle numbers</button></div></div>');
   }
   const ok = s.players.length >= (s.game === "killer" ? 2 : 1);
-  h += '<div class="row"><button class="btn primary big" data-act="start" '.concat(ok ? "" : "disabled", ">Start match</button>").concat(s.players.length > 1 ? '<button class="btn" data-act="shuffleorder">Random order</button>' : "", "</div></div></div>");
+  h += '<div class="row"><button class="btn primary big" data-act="start" '.concat(ok ? "" : "disabled", ">").concat(tr ? "Start training" : "Start match", "</button>").concat(s.players.length > 1 ? '<button class="btn" data-act="shuffleorder">Random order</button>' : "", "</div></div></div>");
   return h;
+}
+function trainingSettings(s) {
+  const S = { drill: s.drill, legs: 1 };
+  if (s.drill === "rtc") Object.assign(S, { ring: s.ring, bull: s.bull });
+  if (s.drill === "bobs") S.stopZero = s.stopZero;
+  if (s.drill === "checkout") Object.assign(S, { range: s.coRange, visits: s.coVisits, targets: coTargets(s.coRange, s.coCount) });
+  if (s.drill === "target") Object.assign(S, { target: s.tgt, count: s.tgtCount });
+  return S;
 }
 function ensureNumbers() {
   const s = ui.setup, used = /* @__PURE__ */ new Set();
@@ -806,7 +978,46 @@ function ensureNumbers() {
     }
   });
 }
+function viewTrainingLive(m) {
+  const S = m.settings, st = trState(m), p = m.players[0], chips = '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>");
+  let big, lines = [], prog = 0, extra = "";
+  if (S.drill === "rtc") {
+    big = st.target;
+    prog = st.i / st.T.length;
+    lines = ["Target ".concat(st.i + 1, " of ").concat(st.T.length), "".concat(st.darts, " darts"), st.i ? "".concat(f1(st.darts / st.i), " darts per target") : ""];
+  } else if (S.drill === "bobs") {
+    big = st.target;
+    prog = st.r / BOBS.length;
+    const t = BOBS[st.r], val = t === 25 ? 50 : 2 * t;
+    lines = ["Round ".concat(st.r + 1, " of ").concat(BOBS.length), "Score ".concat(st.score), m.pending.length ? st.ph ? "+".concat(st.ph * val, " so far") : "".concat(3 - m.pending.length, " left to save \u2212").concat(val) : "Hit = +".concat(val, ", none = \u2212").concat(val)];
+    extra = st.hits.length ? '<div class="opts" style="margin-top:8px">'.concat(st.hits.map((h, i) => '<span class="badge '.concat(h ? "" : "muted", '">').concat(BOBS[i] === 25 ? "Bull" : "D" + BOBS[i], " \xD7").concat(h, "</span>")).join(""), "</div>") : "";
+  } else if (S.drill === "checkout") {
+    big = st.run.rem;
+    prog = st.a / S.targets.length;
+    const ok = st.res.filter((r) => r.ok).length;
+    lines = ["Finish ".concat(st.target), "".concat(st.a + 1, " of ").concat(S.targets.length), "Darts ".concat(st.vis * 3 + m.pending.length + 1, " of ").concat(S.visits * 3), "".concat(ok, " finished so far")];
+    const routes = checkoutRoutes(st.run.rem, 3 - m.pending.length, true), fr = (r) => r.map(dlabel).join(" \xB7 ");
+    const setup = !routes.length && st.run.rem > 1 ? setupShot(st.run.rem, 3 - m.pending.length, true) : null;
+    extra = (routes.length ? '<div class="route">'.concat(fr(routes[0].r), "</div>").concat(routes[1] ? '<div class="route alt">or '.concat(fr(routes[1].r), "</div>") : "") : setup ? '<div class="route setup"><span>Set up</span> '.concat(fr(setup.darts), " <span>leaves ").concat(setup.leave, "</span></div>") : "") + (st.res.length ? '<div class="opts" style="margin-top:8px">'.concat(st.res.slice(-10).map((r) => '<span class="badge '.concat(r.ok ? "" : "muted", '">').concat(r.t, " ").concat(r.ok ? "\u2713 " + r.darts : "\u2717", "</span>")).join(""), "</div>") : "");
+  } else {
+    big = st.target;
+    prog = st.n / S.count;
+    lines = ["Dart ".concat(Math.min(st.n + 1, S.count), " of ").concat(S.count), "".concat(st.h, " hits (").concat(pct(st.h, st.n), ")"), "On the bed ".concat(pct(st.bed, st.n))];
+  }
+  const conf = ui.confirm === "abandon" ? '<div class="banner row" style="justify-content:space-between">Delete this session and its darts? <span class="row"><button class="btn danger" data-act="abandon">Delete session</button><button class="btn" data-act="noconfirm">Keep it</button></span></div>' : "";
+  return '<div class="livebar"><div><div class="eyebrow">'.concat(esc(nameOf(p, m)), ' \xB7 training</div><div class="legline">').concat(esc(DRILLS[S.drill]), '</div></div>\n    <div class="row"><button class="btn" data-act="leave">Pause</button><button class="btn" data-act="askabandon">Delete</button></div></div>\n    ').concat(conf, '<div class="livegrid"><div><div class="pcard act"><div class="eyebrow">').concat(S.drill === "checkout" ? "Remaining" : "Aim at", '</div><div class="rem">').concat(big, '</div>\n    <div class="pm">').concat(lines.filter(Boolean).map((l) => "<span>".concat(l, "</span>")).join(""), "</div>").concat(extra).concat(chips, '\n    <div class="split" style="margin-top:10px;background:rgba(128,128,128,.35)"><b style="width:').concat((prog * 100).toFixed(1), '%;background:var(--hi)"></b></div></div></div>\n    <div>').concat(dartPad(m), "</div></div>");
+}
+function viewTrainingResult(m) {
+  const S = m.settings, st = trState(m);
+  let detail = "";
+  if (S.drill === "rtc") detail = "<table><thead><tr><th>Target</th>".concat(st.T.map((t) => '<th class="num">'.concat(t === 25 ? "B" : t, "</th>")).join(""), "</tr></thead><tbody><tr><td>Darts</td>").concat(st.att.map((a) => '<td class="num">'.concat(a, "</td>")).join(""), "</tr></tbody></table>");
+  else if (S.drill === "bobs") detail = "<table><thead><tr><th>Double</th>".concat(st.hits.map((h, i) => '<th class="num">'.concat(BOBS[i] === 25 ? "B" : BOBS[i], "</th>")).join(""), "</tr></thead><tbody><tr><td>Hits</td>").concat(st.hits.map((h) => '<td class="num">'.concat(h, "</td>")).join(""), "</tr></tbody></table>");
+  else if (S.drill === "checkout") detail = '<table><thead><tr><th>Finish</th><th>Result</th><th class="num">Darts</th></tr></thead><tbody>'.concat(st.res.map((r) => "<tr><td><b>".concat(r.t, "</b></td><td>").concat(r.ok ? "Finished" : "Missed", '</td><td class="num">').concat(r.darts, "</td></tr>")).join(""), "</tbody></table>");
+  else detail = '<div class="kv"><span>Darts</span><span>'.concat(st.n, "</span><span>Hits on ").concat(tgtLabel(S.target), "</span><span>").concat(st.h, " (").concat(pct(st.h, st.n), ")</span><span>On the bed</span><span>").concat(pct(st.bed, st.n), "</span><span>Points per 3 darts</span><span>").concat(f1(st.pts / st.n * 3), "</span></div>");
+  return '<div class="stack"><div class="panel result stack"><div class="eyebrow">'.concat(esc(nameOf(m.players[0], m)), " \xB7 ").concat(esc(drillLabel(S)), '</div><div class="w">').concat(trSummary(m), '</div>\n  <div class="row" style="justify-content:center"><button class="btn primary big" data-act="rematch">Go again</button><button class="btn" data-act="leave">Done</button><button class="btn" data-act="undo">Undo last dart</button></div></div>\n  <div class="panel tscroll">').concat(detail, "</div></div>");
+}
 function viewLive(m) {
+  if (m.game === "training") return viewTrainingLive(m);
   const S = m.settings, P = m.players, tally = P.map((p) => m.legs.filter((l) => l.winner === p).length).join(" \u2013 ");
   let board = "", pad = "";
   if (m.game === "x01") {
@@ -875,6 +1086,7 @@ function dartPad(m) {
   return '<div class="pad">\n    <div class="mults"><button class="key sm mul2'.concat(ui.mult === 2 ? " on" : "", '" data-act="mult" data-v="2">Double</button><button class="key sm mul3').concat(ui.mult === 3 ? " on" : "", '" data-act="mult" data-v="3">Treble</button><button class="key sm" data-act="undo">Undo</button></div>\n    <div class="nums">').concat(Array.from({ length: 20 }, (_, i) => i + 1).map((n) => '<button class="key'.concat(dim(n) ? " dim" : "", '" data-act="dart" data-v="').concat(n, '">').concat(n).concat(owner[n] ? "<small>".concat(esc(owner[n]), "</small>") : "", "</button>")).join(""), '</div>\n    <div class="extras"><button class="key sm" data-act="dart" data-v="25">25</button><button class="key sm" data-act="dart" data-v="50">Bull</button><button class="key sm" data-act="dart" data-v="0">Miss</button></div>\n  </div>');
 }
 function viewResult(m) {
+  if (m.game === "training") return viewTrainingResult(m);
   const P = m.players, ms = [m];
   let rows = "";
   if (m.game === "x01") rows = '<table><thead><tr><th>Player</th><th class="num">Legs</th><th class="num">Avg</th><th class="num">First 9</th><th class="num">100+</th><th class="num">140+</th><th class="num">180</th><th class="num">Best leg</th><th class="num">High out</th></tr></thead><tbody>'.concat(P.map((p) => {
@@ -892,31 +1104,33 @@ function viewResult(m) {
   }).join(""), "</tbody></table>");
   return '<div class="stack"><div class="panel result stack"><div class="eyebrow">'.concat(esc(gameLabel(m)), '</div><div class="w">').concat(esc(nameOf(m.winner, m)), ' wins</div><div class="score">').concat(P.map((p) => "".concat(esc(nameOf(p, m)), " ").concat(m.legs.filter((l) => l.winner === p).length)).join(" \u2013 "), '</div>\n  <div class="row" style="justify-content:center"><button class="btn primary big" data-act="rematch">Rematch</button><button class="btn" data-act="leave">New match</button><button class="btn" data-act="undo">Undo last dart</button></div></div>\n  <div class="panel tscroll">').concat(rows, "</div></div>");
 }
+function newAcc() {
+  const g = () => ({ seg: {}, n: 0 });
+  return { seg: {}, n: 0, miss: 0, mult: [0, 0, 0, 0], sc: { n: 0, T20: 0, S20: 0, b1: 0, b5: 0, other: 0 }, dbl: {}, dA: 0, dH: 0, pos: { all: g(), v1: g(), v2: g(), v3: g(), l1: g() } };
+}
+function accAdd(A, d, j, firstOfLeg) {
+  const put = (o, k2) => {
+    o.n++;
+    o.seg[k2] = (o.seg[k2] || 0) + 1;
+  }, k = dkey(d);
+  A.n++;
+  A.seg[k] = (A.seg[k] || 0) + 1;
+  if (k === "M") A.miss++;
+  else A.mult[d[1]]++;
+  put(A.pos.all, k);
+  if (j < 3) put(A.pos["v" + (j + 1)], k);
+  if (firstOfLeg) put(A.pos.l1, k);
+}
 function statsFor(pid, ms) {
   var _a2;
   const X = { m: 0, mw: 0, legs: 0, lw: 0, pts: 0, d: 0, f9p: 0, f9d: 0, v: 0, b: [0, 0, 0, 0], hi: 0, hist: new Array(10).fill(0), best: null, hiCo: 0, coO: 0, coH: 0, cos: {}, perMatch: [], recs: [] };
   const C = { m: 0, mw: 0, legs: 0, lw: 0, marks: 0, d: 0, rounds: new Array(10).fill(0), r5: 0, r7: 0, r9: 0, recs: [] };
   const K = { m: 0, mw: 0, legs: 0, lw: 0, taken: 0, toK: [], recs: [] };
-  const A = { seg: {}, n: 0, miss: 0, mult: [0, 0, 0, 0], sc: { n: 0, T20: 0, S20: 0, b1: 0, b5: 0, other: 0 }, dbl: {}, dA: 0, dH: 0 };
-  const opp = {};
-  A.pos = { all: { seg: {}, n: 0 }, v1: { seg: {}, n: 0 }, v2: { seg: {}, n: 0 }, v3: { seg: {}, n: 0 }, l1: { seg: {}, n: 0 } };
-  const put = (o, k) => {
-    o.n++;
-    o.seg[k] = (o.seg[k] || 0) + 1;
-  };
-  const acc = (d, j, firstOfLeg) => {
-    A.n++;
-    const k = dkey(d);
-    A.seg[k] = (A.seg[k] || 0) + 1;
-    if (k === "M") A.miss++;
-    else A.mult[d[1]]++;
-    put(A.pos.all, k);
-    if (j < 3) put(A.pos["v" + (j + 1)], k);
-    if (firstOfLeg) put(A.pos.l1, k);
-  };
+  const A = newAcc(), opp = {};
+  const acc = (d, j, firstOfLeg) => accAdd(A, d, j, firstOfLeg);
   const accVisit = (v, k) => v.darts.forEach((d, j) => acc(d, j, k === 0 && j === 0));
   for (const m of ms) {
-    if (!m.players.includes(pid)) continue;
+    if (!m.players.includes(pid) || m.game === "training") continue;
     const done = m.legs.filter((l) => l.winner);
     if (!done.length) continue;
     const T = m.game === "x01" ? X : m.game === "cricket" ? C : K;
@@ -1227,18 +1441,88 @@ function viewStats() {
   const since = f.period === "all" ? 0 : Date.now() - Number(f.period) * 864e5;
   const fm = ms.filter((m) => m.game === f.game && m.startedAt >= since && (f.game !== "x01" || f.start === "any" || m.settings.start == f.start));
   const S = statsFor(f.pid, fm), pname = nameOf(f.pid, ms.find((m) => m.players.includes(f.pid)));
-  const tab = f.tab || "player";
+  const tab = f.game === "training" ? "player" : f.tab || "player";
   const opps = pids.filter((p) => p !== f.pid && ms.some((m) => m.players.includes(p) && m.players.includes(f.pid)));
   if (!opps.includes(f.vs)) f.vs = opps[0] || null;
   const pOpt = (k, list, cur) => list.map((p) => '<option value="'.concat(p, '"').concat(p === cur ? " selected" : "", ">").concat(esc(nameOf(p, ms.find((m) => m.players.includes(p)))), "</option>")).join("");
   let h = '<div class="stack">';
   if (sample) h += '<div class="banner"><b>Sample data.</b> These charts come from simulated players so you can see what the stats look like. Play a match and your own numbers replace them.</div>';
-  h += '<div class="opts">'.concat([["player", "Player"], ["h2h", "Head to head"], ["rivals", "Rivalries"]].map(([v, l]) => '<button class="opt'.concat(tab === v ? " on" : "", '" data-act="stab" data-v="').concat(v, '">').concat(l, "</button>")).join(""), "</div>");
-  h += '<div class="filters">\n    '.concat(tab !== "rivals" ? '<label class="field"><span class="eyebrow">Player</span><select data-change="sf" data-k="pid" id="sf-pid">'.concat(pOpt("pid", pids, f.pid), "</select></label>") : "", "\n    ").concat(tab === "h2h" ? '<label class="field"><span class="eyebrow">Against</span><select data-change="sf" data-k="vs" id="sf-vs">'.concat(opps.length ? pOpt("vs", opps, f.vs) : "<option>No opponents yet</option>", "</select></label>") : "", '\n    <label class="field"><span class="eyebrow">Game</span><select data-change="sf" data-k="game" id="sf-game">').concat([["x01", "X01"], ["cricket", "Cricket"], ["killer", "Killer"]].map(([v, l]) => '<option value="'.concat(v, '"').concat(v === f.game ? " selected" : "", ">").concat(l, "</option>")).join(""), "</select></label>\n    ").concat(f.game === "x01" ? '<label class="field"><span class="eyebrow">Start</span><select data-change="sf" data-k="start" id="sf-start">'.concat(["any", "301", "501", "701"].map((v) => '<option value="'.concat(v, '"').concat(String(f.start) === v ? " selected" : "", ">").concat(v === "any" ? "Any" : v, "</option>")).join(""), "</select></label>") : "", '\n    <label class="field"><span class="eyebrow">Period</span><select data-change="sf" data-k="period" id="sf-period">').concat([["7", "Last 7 days"], ["30", "Last 30 days"], ["90", "Last 90 days"], ["all", "All time"]].map(([v, l]) => '<option value="'.concat(v, '"').concat(v === f.period ? " selected" : "", ">").concat(l, "</option>")).join(""), "</select></label>\n  </div>");
+  if (f.game !== "training") h += '<div class="opts">'.concat([["player", "Player"], ["h2h", "Head to head"], ["rivals", "Rivalries"]].map(([v, l]) => '<button class="opt'.concat(tab === v ? " on" : "", '" data-act="stab" data-v="').concat(v, '">').concat(l, "</button>")).join(""), "</div>");
+  h += '<div class="filters">\n    '.concat(tab !== "rivals" ? '<label class="field"><span class="eyebrow">Player</span><select data-change="sf" data-k="pid" id="sf-pid">'.concat(pOpt("pid", pids, f.pid), "</select></label>") : "", "\n    ").concat(tab === "h2h" ? '<label class="field"><span class="eyebrow">Against</span><select data-change="sf" data-k="vs" id="sf-vs">'.concat(opps.length ? pOpt("vs", opps, f.vs) : "<option>No opponents yet</option>", "</select></label>") : "", '\n    <label class="field"><span class="eyebrow">Game</span><select data-change="sf" data-k="game" id="sf-game">').concat([["x01", "X01"], ["cricket", "Cricket"], ["killer", "Killer"], ["training", "Training"]].map(([v, l]) => '<option value="'.concat(v, '"').concat(v === f.game ? " selected" : "", ">").concat(l, "</option>")).join(""), "</select></label>\n    ").concat(f.game === "x01" ? '<label class="field"><span class="eyebrow">Start</span><select data-change="sf" data-k="start" id="sf-start">'.concat(["any", "301", "501", "701"].map((v) => '<option value="'.concat(v, '"').concat(String(f.start) === v ? " selected" : "", ">").concat(v === "any" ? "Any" : v, "</option>")).join(""), "</select></label>") : "", '\n    <label class="field"><span class="eyebrow">Period</span><select data-change="sf" data-k="period" id="sf-period">').concat([["7", "Last 7 days"], ["30", "Last 30 days"], ["90", "Last 90 days"], ["all", "All time"]].map(([v, l]) => '<option value="'.concat(v, '"').concat(v === f.period ? " selected" : "", ">").concat(l, "</option>")).join(""), "</select></label>\n  </div>");
   if (tab === "h2h") h += (f.vs ? compareSection(f.pid, f.vs, fm, f.game) : '<div class="panel"><p class="note">'.concat(esc(pname), " hasn't played anyone yet.</p></div>")) + h2hSection(S.opp, f.game);
   else if (tab === "rivals") h += rivalsSection(fm, f.game);
+  else if (f.game === "training") h += sample ? '<div class="panel"><p class="note">No training sessions yet. Choose Training on the Play page to start a drill.</p></div>' : statsTraining(f.pid, fm);
   else h += f.game === "x01" ? statsX01(S, pname) : f.game === "cricket" ? statsCricket(S) : statsKiller(S);
   return h + "</div>";
+}
+function statsTraining(pid, fm) {
+  const ms = fm.filter((m) => m.players[0] === pid && m.status === "done").map((m) => ({ m, st: trState(m) }));
+  if (!ms.length) return '<div class="panel"><p class="note">No finished training sessions for this player in this period.</p></div>';
+  const A = newAcc();
+  ms.forEach(({ m }) => m.legs[0].visits.forEach((v, k) => v.darts.forEach((d, j) => accAdd(A, d, j, k === 0 && j === 0))));
+  const of = (d) => ms.filter((x) => x.m.settings.drill === d), mean = (a) => a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN;
+  const pts = (list, y) => list.map((x) => ({ t: x.m.startedAt, y: y(x) }));
+  let h = "";
+  const rtc = of("rtc");
+  if (rtc.length) {
+    const modes = {};
+    rtc.filter((x) => x.st.done).forEach((x) => {
+      var _a2;
+      const k = x.m.settings.ring + (x.m.settings.bull ? "+b" : "");
+      ((_a2 = modes[k]) != null ? _a2 : modes[k] = []).push(x);
+    });
+    const att = {}, hit = {};
+    rtc.forEach(({ st }) => st.T.forEach((t, i) => {
+      att[t] = (att[t] || 0) + st.att[i];
+      hit[t] = (hit[t] || 0) + st.hit[i];
+    }));
+    const top = Object.values(modes).sort((a, b) => b.length - a.length)[0] || [];
+    h += '<div class="panel stack"><h3>Round the Clock</h3><div class="tscroll"><table><thead><tr><th>Version</th><th class="num">Sessions</th><th class="num">Best</th><th class="num">Average</th><th class="num">Last</th></tr></thead><tbody>'.concat(Object.values(modes).map((l) => {
+      const d = l.map((x) => x.st.darts);
+      return "<tr><td>".concat(esc(drillLabel(l[0].m.settings).replace(DRILLS.rtc + " \xB7 ", "")), '</td><td class="num">').concat(l.length, '</td><td class="num">').concat(Math.min(...d), ' darts</td><td class="num">').concat(f1(mean(d)), '</td><td class="num">').concat(d[d.length - 1], "</td></tr>");
+    }).join(""), "</tbody></table></div>\n    ").concat(top.length > 1 ? '<div><div class="eyebrow" style="margin-bottom:6px">Darts per round \xB7 '.concat(esc(drillLabel(top[0].m.settings).replace(DRILLS.rtc + " \xB7 ", "")), " \xB7 lower is better</div>").concat(lineChart(pts(top, (x) => x.st.darts), { fmt: (v) => v.toFixed(0) }), "</div>") : "", '\n    <div><div class="eyebrow" style="margin-bottom:6px">Hit rate on each number</div>').concat(bars(Object.keys(att).map(Number).sort((a, b) => a - b).map((t) => ({ l: t === 25 ? "B" : String(t), v: att[t] ? hit[t] / att[t] * 100 : 0 })), { fmt: (v) => v.toFixed(0) + "%" }), "</div></div>");
+  }
+  const bobs = of("bobs");
+  if (bobs.length) {
+    const sc = bobs.map((x) => x.st.score), fin = bobs.filter((x) => !x.st.failed).length, dh = BOBS.map(() => 0), dr = BOBS.map(() => 0);
+    bobs.forEach(({ st }) => st.hits.forEach((x, i) => {
+      dh[i] += x;
+      dr[i] += 3;
+    }));
+    h += '<div class="panel stack"><h3>Bob\u2019s 27</h3><div class="tiles">'.concat(tile("Best score", Math.max(...sc))).concat(tile("Average score", f1(mean(sc)), "".concat(bobs.length, " sessions"))).concat(tile("Got to the bull", pct(fin, bobs.length), "".concat(fin, " of ").concat(bobs.length, " without dropping to zero")), "</div>\n    ").concat(bobs.length > 1 ? '<div><div class="eyebrow" style="margin-bottom:6px">Score by session</div>'.concat(lineChart(pts(bobs, (x) => x.st.score), { fmt: (v) => v.toFixed(0) }), "</div>") : "", '\n    <div><div class="eyebrow" style="margin-bottom:6px">Hit rate on each double</div>').concat(bars(BOBS.map((t, i) => ({ l: t === 25 ? "B" : "D" + t, v: dr[i] ? dh[i] / dr[i] * 100 : 0, n: dr[i] ? dr[i] + " darts" : "" })).filter((x) => x.n), { fmt: (v) => v.toFixed(0) + "%" }), "</div></div>");
+  }
+  const co = of("checkout");
+  if (co.length) {
+    const all = [].concat(...co.map((x) => x.st.res.map((r) => Object.assign({ range: x.m.settings.range, darts9: x.m.settings.visits * 3 }, r))));
+    const ok = all.filter((r) => r.ok), by = {}, miss = {};
+    all.forEach((r) => {
+      var _a2, _b;
+      const o = (_b = by[_a2 = r.range]) != null ? _b : by[_a2] = { n: 0, ok: 0, d: 0 };
+      o.n++;
+      if (r.ok) {
+        o.ok++;
+        o.d += r.darts;
+      } else miss[r.t] = (miss[r.t] || 0) + 1;
+    });
+    const worst = Object.entries(miss).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    h += '<div class="panel stack"><h3>Checkout practice</h3><div class="tiles">'.concat(tile("Finished", pct(ok.length, all.length), "".concat(ok.length, " of ").concat(all.length, " finishes"))).concat(tile("Darts per finish", f1(mean(ok.map((r) => r.darts))), "when you took it out")).concat(tile("Highest finish", ok.length ? Math.max(...ok.map((r) => r.t)) : "\u2013"), '</div>\n    <div class="tscroll"><table><thead><tr><th>Range</th><th class="num">Tried</th><th class="num">Finished</th><th class="num">Rate</th><th class="num">Avg darts</th></tr></thead><tbody>').concat(Object.keys(CO_RANGES).filter((k) => by[k]).map((k) => "<tr><td>".concat(CO_RANGES[k][2], '</td><td class="num">').concat(by[k].n, '</td><td class="num">').concat(by[k].ok, '</td><td class="num">').concat(pct(by[k].ok, by[k].n), '</td><td class="num">').concat(by[k].ok ? f1(by[k].d / by[k].ok) : "\u2013", "</td></tr>")).join(""), "</tbody></table></div>\n    ").concat(co.length > 1 ? '<div><div class="eyebrow" style="margin-bottom:6px">Finish rate by session</div>'.concat(lineChart(pts(co, (x) => x.st.res.filter((r) => r.ok).length / x.st.res.length * 100), { fmt: (v) => v.toFixed(0) + "%" }), "</div>") : "", "\n    ").concat(worst.length ? '<div><div class="eyebrow" style="margin-bottom:6px">Finishes you missed most</div><div class="opts">'.concat(worst.map(([t, n]) => '<span class="chip">'.concat(t).concat(n > 1 ? ' <span class="note">\xD7'.concat(n, "</span>") : "", "</span>")).join(""), "</div></div>") : "", "</div>");
+  }
+  const tg = of("target");
+  if (tg.length) {
+    const by = {};
+    tg.forEach((x) => {
+      var _a2, _b;
+      const o = (_b = by[_a2 = x.m.settings.target]) != null ? _b : by[_a2] = { s: [], n: 0, h: 0, bed: 0, pts: 0 };
+      o.s.push(x);
+      o.n += x.st.n;
+      o.h += x.st.h;
+      o.bed += x.st.bed;
+      o.pts += x.st.pts;
+    });
+    const top = Object.entries(by).sort((a, b) => b[1].s.length - a[1].s.length)[0];
+    h += '<div class="panel stack"><h3>Target practice</h3><div class="tscroll"><table><thead><tr><th>Target</th><th class="num">Sessions</th><th class="num">Darts</th><th class="num">Hit rate</th><th class="num">Best session</th><th class="num">On the bed</th><th class="num">Points / 3 darts</th></tr></thead><tbody>'.concat(Object.entries(by).map(([t, o]) => "<tr><td><b>".concat(tgtLabel(t), '</b></td><td class="num">').concat(o.s.length, '</td><td class="num">').concat(o.n, '</td><td class="num">').concat(pct(o.h, o.n), '</td><td class="num">').concat((Math.max(...o.s.map((x) => x.st.h / x.st.n)) * 100).toFixed(1), '%</td><td class="num">').concat(pct(o.bed, o.n), '</td><td class="num">').concat(f1(o.pts / o.n * 3), "</td></tr>")).join(""), "</tbody></table></div>\n    ").concat(top[1].s.length > 1 ? '<div><div class="eyebrow" style="margin-bottom:6px">Hit rate on '.concat(tgtLabel(top[0]), " by session</div>").concat(lineChart(pts(top[1].s, (x) => x.st.h / x.st.n * 100), { fmt: (v) => v.toFixed(1) + "%" }), "</div>") : "", "</div>");
+  }
+  return h + accuracySection(A, false);
 }
 const tile = (l, v, s = "") => '<div class="tile"><div class="eyebrow">'.concat(l, '</div><div class="v">').concat(v, "</div>").concat(s ? '<div class="s">'.concat(s, "</div>") : "", "</div>");
 function accuracySection(A, scoring) {
@@ -1393,12 +1677,15 @@ function viewHistory() {
   if (!ms.length) return '<div class="panel"><h2>No matches yet</h2><p class="note">Finished and paused matches appear here, newest first. Start one from Play.</p></div>';
   return '<div class="hist">'.concat(ms.map((m) => {
     const open = ui.open === m.id;
-    const tally = m.players.map((p) => {
+    const tr = m.game === "training";
+    const tally = tr ? "".concat(esc(nameOf(m.players[0], m)), " \xB7 ").concat(trSummary(m)) : m.players.map((p) => {
       const w = m.legs.filter((l) => l.winner === p).length;
       return p === m.winner ? "<b>".concat(esc(nameOf(p, m)), " ").concat(w, "</b>") : "".concat(esc(nameOf(p, m)), " ").concat(w);
     }).join(" \u2013 ");
     let body = "";
-    if (open) {
+    if (open && tr) {
+      body = '<div class="hbody"><div class="row">'.concat(m.status === "live" ? '<button class="btn" data-act="resume" data-id="'.concat(m.id, '">Resume</button>') : "", "\n      ").concat(ui.confirm === "del:" + m.id ? '<span>Delete this session for good?</span><button class="btn danger" data-act="delmatch" data-id="'.concat(m.id, '">Delete</button><button class="btn" data-act="noconfirm">Keep</button>') : '<button class="btn danger" data-act="askdel" data-id="'.concat(m.id, '">Delete</button>'), "</div></div>");
+    } else if (open) {
       const legs = m.legs.filter((l) => l.winner).map((l, i) => {
         var _a2;
         const d = l.visits.filter((v) => v.p === l.winner).reduce((a, v) => a + v.n, 0);
@@ -1473,7 +1760,8 @@ const ACTS = {
   },
   pick: (d) => {
     const s = ui.setup, k = s.players.indexOf(d.id);
-    k >= 0 ? s.players.splice(k, 1) : s.players.push(d.id);
+    if (s.game === "training") s.players = k >= 0 ? [] : [d.id];
+    else k >= 0 ? s.players.splice(k, 1) : s.players.push(d.id);
     ensureNumbers();
     remember();
     render();
@@ -1497,7 +1785,10 @@ const ACTS = {
     let settings;
     if (s.game === "x01") settings = { start: s.start, doubleOut: s.doubleOut, doubleIn: s.doubleIn, legs: s.legs, mode: s.mode };
     else if (s.game === "cricket") settings = { legs: s.legs };
-    else {
+    else if (s.game === "training") {
+      s.players = s.players.slice(0, 1);
+      settings = trainingSettings(s);
+    } else {
       ensureNumbers();
       if (new Set(s.players.map((p) => s.numbers[p])).size < s.players.length) return toast("Each player needs a different number");
       settings = { legs: s.legs, lives: s.lives, trebles: s.trebles, suicide: s.suicide, numbers: Object.fromEntries(s.players.map((p) => [p, s.numbers[p]])) };
@@ -1597,8 +1888,9 @@ const ACTS = {
     else render();
   },
   rematch: () => {
-    const m = live;
-    live = newMatch(m.game, plain(m.settings), [...m.players.slice(1), m.players[0]], m.names);
+    const m = live, S = plain(m.settings);
+    if (m.game === "training" && S.drill === "checkout") S.targets = coTargets(S.range, S.targets.length);
+    live = newMatch(m.game, S, [...m.players.slice(1), m.players[0]], m.names);
     changed();
   },
   exportb: () => {
