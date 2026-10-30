@@ -561,7 +561,9 @@ function commit(m, v, winner) {
   v.t = clock();
   curLeg(m).visits.push(v);
   m.pending = [];
-  if (!winner) return;
+  if (winner) endLeg(m, winner);
+}
+function endLeg(m, winner) {
   const leg = curLeg(m);
   leg.winner = winner;
   leg.endedAt = clock();
@@ -594,7 +596,7 @@ function undo(m) {
     return true;
   }
   let leg = curLeg(m);
-  if (!leg.visits.length) {
+  if (!leg.visits.length && !leg.bull) {
     if (m.legs.length <= 1) return false;
     m.legs.pop();
     leg = curLeg(m);
@@ -604,6 +606,10 @@ function undo(m) {
   m.status = "live";
   m.winner = null;
   m.endedAt = null;
+  if (leg.bull) {
+    delete leg.bull;
+    return true;
+  }
   const v = leg.visits.pop();
   if (!v) return false;
   if (v.darts) m.pending = v.darts.slice(0, -1);
@@ -1081,8 +1087,8 @@ function viewLive(m) {
     board = '<div class="pcards">'.concat(P.map((p, j) => '<div class="pcard'.concat(j === st.turn ? " act" : "").concat(st.lives[j] <= 0 ? " out" : "", '"><div class="ph"><span class="pn">').concat(esc(nameOf(p, m)), '</span><span class="legs">').concat(m.legs.filter((l) => l.winner === p).length, '</span></div>\n      <div class="rem">').concat(st.num[j], '</div>\n      <div class="lives">').concat(Array.from({ length: S.lives }, (_, k) => '<i class="'.concat(k < st.lives[j] ? "f" : "", '"></i>')).join(""), '</div>\n      <div class="pm">').concat(st.lives[j] <= 0 ? "<span>Out</span>" : st.killer[j] ? '<span class="badge">Killer</span>' : "<span>Needs D".concat(st.num[j], "</span>"), "</div>\n      ").concat(j === st.turn ? '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "").concat(m.pending[k] && m.pending[k][2] === "d" ? " long" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>") : "", "\n    </div>")).join(""), "</div>");
     pad = dartPad(m);
   }
-  const conf = ui.confirm === "abandon" ? '<div class="banner row" style="justify-content:space-between">Delete this match and its scores? <span class="row"><button class="btn danger" data-act="abandon">Delete match</button><button class="btn" data-act="noconfirm">Keep it</button></span></div>' : "";
-  return '<div class="livebar"><div><div class="eyebrow">'.concat(esc(gameLabel(m)), '</div><div class="legline">Leg ').concat(m.legs.length, " \xB7 ").concat(tally, '</div></div>\n    <div class="row">').concat(m.game === "x01" ? '<div class="opts">'.concat(["visit", "dart"].map((md) => '<button class="opt'.concat(S.mode === md ? " on" : "", '" data-act="mode" data-v="').concat(md, '" ').concat(m.pending.length ? "disabled" : "", ">").concat(md === "visit" ? "Visit" : "Dart", "</button>")).join(""), "</div>") : "", '\n    <button class="btn" data-act="leave">Pause</button><button class="btn" data-act="askabandon">Delete</button></div></div>\n    ').concat(conf, '<div class="livegrid"><div>').concat(board, "</div><div>").concat(pad, "</div></div>");
+  const conf = ui.confirm === "abandon" ? '<div class="banner row" style="justify-content:space-between">Delete this match and its scores? <span class="row"><button class="btn danger" data-act="abandon">Delete match</button><button class="btn" data-act="noconfirm">Keep it</button></span></div>' : ui.confirm === "bull" ? '<div class="banner row" style="justify-content:space-between">Who was closest to the bull? <span class="row">'.concat(P.map((p) => '<button class="btn primary" data-act="bullwin" data-v="'.concat(p, '">').concat(esc(nameOf(p, m)), "</button>")).join(""), '<button class="btn" data-act="noconfirm">Cancel</button></span></div>') : "";
+  return '<div class="livebar"><div><div class="eyebrow">'.concat(esc(gameLabel(m)), '</div><div class="legline">Leg ').concat(m.legs.length, " \xB7 ").concat(tally, '</div></div>\n    <div class="row">').concat(m.game === "x01" ? '<div class="opts">'.concat(["visit", "dart"].map((md) => '<button class="opt'.concat(S.mode === md ? " on" : "", '" data-act="mode" data-v="').concat(md, '" ').concat(m.pending.length ? "disabled" : "", ">").concat(md === "visit" ? "Visit" : "Dart", "</button>")).join(""), "</div>") : "", "\n    ").concat(m.game === "x01" ? '<button class="btn" data-act="askbull" '.concat(m.pending.length ? "disabled" : "", ">Closest to bull</button>") : "", '<button class="btn" data-act="leave">Pause</button><button class="btn" data-act="askabandon">Delete</button></div></div>\n    ').concat(conf, '<div class="livegrid"><div>').concat(board, "</div><div>").concat(pad, "</div></div>");
 }
 function legLog(m) {
   const leg = curLeg(m), vs = leg.visits.slice(-6).reverse();
@@ -1240,7 +1246,7 @@ function statsFor(pid, ms) {
             }
           }
         });
-        if (leg.winner === pid) X.best = X.best == null ? ld : Math.min(X.best, ld);
+        if (leg.winner === pid && !leg.bull) X.best = X.best == null ? ld : Math.min(X.best, ld);
         mp += lp;
         md += ld;
       } else if (m.game === "cricket") {
@@ -1863,9 +1869,8 @@ function viewHistory() {
       body = '<div class="hbody"><div class="row">'.concat(m.status === "live" ? '<button class="btn" data-act="resume" data-id="'.concat(m.id, '">Resume</button>') : "", "\n      ").concat(ui.confirm === "del:" + m.id ? '<span>Delete this session for good?</span><button class="btn danger" data-act="delmatch" data-id="'.concat(m.id, '">Delete</button><button class="btn" data-act="noconfirm">Keep</button>') : '<button class="btn danger" data-act="askdel" data-id="'.concat(m.id, '">Delete</button>'), "</div></div>");
     } else if (open) {
       const legs = m.legs.filter((l) => l.winner).map((l, i) => {
-        var _a2;
         const d = l.visits.filter((v) => v.p === l.winner).reduce((a, v) => a + v.n, 0);
-        return "<tr><td>Leg ".concat(i + 1, "</td><td>").concat(esc(nameOf(l.winner, m)), '</td><td class="num">').concat(d, " darts</td>").concat(m.game === "x01" ? '<td class="num">'.concat((_a2 = (l.visits.slice(-1)[0] || {}).rem) != null ? _a2 : "", " out</td>") : "<td></td>", "</tr>");
+        return "<tr><td>Leg ".concat(i + 1, "</td><td>").concat(esc(nameOf(l.winner, m)), '</td><td class="num">').concat(d, " darts</td>").concat(m.game === "x01" ? '<td class="num">'.concat(l.bull ? "Closest to bull" : (l.visits.slice(-1)[0] || {}).rem + " out", "</td>") : "<td></td>", "</tr>");
       }).join("");
       const per = m.players.map((p) => {
         const s = statsFor(p, [m]);
@@ -2000,6 +2005,19 @@ const ACTS = {
   noconfirm: () => {
     ui.confirm = null;
     render();
+  },
+  askbull: () => {
+    ui.confirm = "bull";
+    render();
+  },
+  bullwin: (d) => {
+    if (live.pending.length) return;
+    ui.confirm = null;
+    ui.entry = "";
+    ui.askDarts = null;
+    curLeg(live).bull = true;
+    endLeg(live, d.v);
+    changed();
   },
   abandon: () => {
     const id = live.id;
