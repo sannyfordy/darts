@@ -91,6 +91,10 @@ input[type=text],select{background:var(--surface);border:1px solid var(--line);b
 .legs{font-family:var(--f-display);font-weight:800;font-size:18px}
 .rem{font-family:var(--f-display);font-weight:800;font-size:56px;line-height:.95;letter-spacing:-.01em}
 .pm{display:flex;gap:4px 10px;flex-wrap:wrap;font-size:15px;color:var(--muted)}
+.avgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;margin:6px 0 4px}
+.avgs span{display:block;font-size:13px;color:var(--muted)}
+.avgs b{display:block;font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1.05}
+.pcard.act .avgs span{color:var(--bg);opacity:.75}
 .route{margin-top:8px;font-family:var(--f-display);font-weight:800;font-size:30px;line-height:1.1;letter-spacing:.03em;color:var(--hi)}
 .pcard.act .route{color:var(--hi-act)}
 .route.alt{margin-top:4px;font-size:23px;font-weight:600}
@@ -1027,29 +1031,34 @@ function viewTrainingResult(m) {
   else detail = '<div class="kv"><span>Darts</span><span>'.concat(st.n, "</span><span>Hits on ").concat(tgtLabel(S.target), "</span><span>").concat(st.h, " (").concat(pct(st.h, st.n), ")</span><span>On the bed</span><span>").concat(pct(st.bed, st.n), "</span><span>Points per 3 darts</span><span>").concat(f1(st.pts / st.n * 3), "</span></div>");
   return '<div class="stack"><div class="panel result stack"><div class="eyebrow">'.concat(esc(nameOf(m.players[0], m)), " \xB7 ").concat(esc(drillLabel(S)), '</div><div class="w">').concat(trSummary(m), '</div>\n  <div class="row" style="justify-content:center"><button class="btn primary big" data-act="rematch">Go again</button><button class="btn" data-act="leave">Done</button><button class="btn" data-act="undo">Undo last dart</button></div></div>\n  <div class="panel tscroll">').concat(detail, "</div></div>");
 }
+function legsAvg(legs, p) {
+  let s = 0, n = 0;
+  legs.forEach((l) => l.visits.forEach((v) => {
+    if (v.p === p) {
+      s += v.score;
+      n += v.n;
+    }
+  }));
+  return n ? s / n * 3 : NaN;
+}
 function viewLive(m) {
   if (m.game === "training") return viewTrainingLive(m);
   const S = m.settings, P = m.players, tally = P.map((p) => m.legs.filter((l) => l.winner === p).length).join(" \u2013 ");
   let board = "", pad = "";
   if (m.game === "x01") {
     const st = x01State(m), i = st.turn, run = x01Darts(st.rem[i], st.opened[i], m.pending, S), leg = curLeg(m);
-    const avg = P.map((p) => {
-      let s = 0, n = 0;
-      m.legs.forEach((l) => l.visits.forEach((v) => {
-        if (v.p === p) {
-          s += v.score;
-          n += v.n;
-        }
-      }));
-      return n ? s / n * 3 : NaN;
+    const allLegs = [];
+    matchList().forEach((x) => {
+      if (x.game === "x01") allLegs.push(...x.legs);
     });
+    const prevLeg = m.legs.length > 1 ? [m.legs[m.legs.length - 2]] : [];
     board = '<div class="pcards">'.concat(P.map((p, j) => {
       const act = j === i, rem = act ? run.rem : st.rem[j], lv = [...leg.visits].reverse().find((v) => v.p === p);
       const left = S.mode === "dart" ? 3 - m.pending.length : 3;
       const routes = act && rem <= (S.doubleOut ? 170 : 180) ? checkoutRoutes(rem, left, S.doubleOut) : [];
       const setup = act && !routes.length && rem > 1 && rem <= 230 ? setupShot(rem, left, S.doubleOut) : null;
       const fr = (r) => r.map(dlabel).join(" \xB7 ");
-      return '<div class="pcard'.concat(act ? " act" : "", '"><div class="ph"><span class="pn">').concat(esc(nameOf(p, m)), '</span><span class="legs" title="Legs won">').concat(m.legs.filter((l) => l.winner === p).length, '</span></div>\n      <div class="rem">').concat(rem, '</div>\n      <div class="pm"><span>Avg ').concat(f1(avg[j]), "</span><span>").concat(st.darts[j] + (act ? m.pending.length : 0), " darts</span>").concat(lv ? "<span>Last ".concat(lv.bust ? "bust" : lv.score, "</span>") : "", "</div>\n      ").concat(routes.length ? '<div class="route">'.concat(fr(routes[0].r), "</div>").concat(routes[1] ? '<div class="route alt">or '.concat(fr(routes[1].r), "</div>") : "") : "", "\n      ").concat(setup ? '<div class="route setup"><span>Set up</span> '.concat(fr(setup.darts), " <span>leaves ").concat(setup.leave, "</span></div>") : "", "\n      ").concat(act && S.mode === "dart" ? '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "").concat(m.pending[k] && m.pending[k][2] === "d" ? " long" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>") : "", "\n      </div>");
+      return '<div class="pcard'.concat(act ? " act" : "", '"><div class="ph"><span class="pn">').concat(esc(nameOf(p, m)), '</span><span class="legs" title="Legs won">').concat(m.legs.filter((l) => l.winner === p).length, '</span></div>\n      <div class="rem">').concat(rem, '</div>\n      <div class="avgs">').concat([["Lifetime avg", allLegs], ["Match avg", m.legs], ["Leg avg", [leg]], ["Previous leg", prevLeg]].map(([l, ls]) => "<div><span>".concat(l, "</span><b>").concat(f1(legsAvg(ls, p)), "</b></div>")).join(""), '</div>\n      <div class="pm"><span>').concat(st.darts[j] + (act ? m.pending.length : 0), " darts</span>").concat(lv ? "<span>Last ".concat(lv.bust ? "bust" : lv.score, "</span>") : "", "</div>\n      ").concat(routes.length ? '<div class="route">'.concat(fr(routes[0].r), "</div>").concat(routes[1] ? '<div class="route alt">or '.concat(fr(routes[1].r), "</div>") : "") : "", "\n      ").concat(setup ? '<div class="route setup"><span>Set up</span> '.concat(fr(setup.darts), " <span>leaves ").concat(setup.leave, "</span></div>") : "", "\n      ").concat(act && S.mode === "dart" ? '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "").concat(m.pending[k] && m.pending[k][2] === "d" ? " long" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>") : "", "\n      </div>");
     }).join(""), "</div>").concat(legLog(m));
     pad = S.mode === "dart" ? dartPad(m) : visitPad(m, st);
   } else if (m.game === "cricket") {
