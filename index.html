@@ -18,16 +18,16 @@
 /* Layout: sticky scoreboard header over one working column; live play splits board | pad on wide screens. Chalkboard slate in dark, scoresheet paper in light. */
 :root{
   --bg:#eaede7; --surface:#fafbf7; --surface-2:#dfe4dc; --ink:#15201a; --muted:#5a675f; --line:#cbd3ca;
-  --red:#c22f29; --green:#18794a; --hi:#a8740a; --heat:#c22f29; --w1:#e6eae2; --w2:#d3d9d0;
+  --red:#c22f29; --green:#18794a; --hi:#a8740a; --hi-act:#ffd65c; --heat:#c22f29; --w1:#e6eae2; --w2:#d3d9d0;
   --f-display:"Big Shoulders Display","Arial Narrow","Roboto Condensed",sans-serif;
   --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#141b18; --surface:#1c2521; --surface-2:#26312c; --ink:#ebf0e8; --muted:#95a49b; --line:#33403a;
-  --red:#ee5d4e; --green:#41c27c; --hi:#f0c95a; --heat:#ff6c50; --w1:#222c28; --w2:#2c3832; color-scheme:dark}}
+  --red:#ee5d4e; --green:#41c27c; --hi:#f0c95a; --hi-act:#7a5200; --heat:#ff6c50; --w1:#222c28; --w2:#2c3832; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#141b18; --surface:#1c2521; --surface-2:#26312c; --ink:#ebf0e8; --muted:#95a49b; --line:#33403a;
-  --red:#ee5d4e; --green:#41c27c; --hi:#f0c95a; --heat:#ff6c50; --w1:#222c28; --w2:#2c3832; color-scheme:dark}
+  --red:#ee5d4e; --green:#41c27c; --hi:#f0c95a; --hi-act:#7a5200; --heat:#ff6c50; --w1:#222c28; --w2:#2c3832; color-scheme:dark}
 
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-tap-highlight-color:transparent}
@@ -90,13 +90,15 @@ input[type=text],select{background:var(--surface);border:1px solid var(--line);b
 .pn{font-weight:700;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .legs{font-family:var(--f-display);font-weight:800;font-size:18px}
 .rem{font-family:var(--f-display);font-weight:800;font-size:56px;line-height:.95;letter-spacing:-.01em}
-.pm{display:flex;gap:4px 10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
-.route{margin-top:6px;font-family:var(--f-display);font-weight:600;font-size:18px;letter-spacing:.04em;color:var(--hi)}
-.route.alt{margin-top:0;font-size:15px;opacity:.75}
-.route.setup span{font-family:var(--f-body);font-size:13px;font-weight:600;letter-spacing:.02em;opacity:.8}
+.pm{display:flex;gap:4px 10px;flex-wrap:wrap;font-size:15px;color:var(--muted)}
+.route{margin-top:8px;font-family:var(--f-display);font-weight:800;font-size:30px;line-height:1.1;letter-spacing:.03em;color:var(--hi)}
+.pcard.act .route{color:var(--hi-act)}
+.route.alt{margin-top:4px;font-size:23px;font-weight:600}
+.route.setup span{font-family:var(--f-body);font-size:17px;font-weight:600;letter-spacing:.02em}
 .dchips{display:flex;gap:6px;margin-top:8px}
-.dchip{flex:1;min-width:0;height:30px;border-radius:6px;border:1px dashed currentColor;opacity:.5;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:17px}
-.dchip.on{opacity:1;border-style:solid}
+.dchip{flex:1;min-width:0;height:52px;border-radius:7px;border:1px dashed currentColor;opacity:.5;display:grid;place-items:center;text-align:center;font-family:var(--f-display);font-weight:800;font-size:30px;line-height:1}
+.dchip.on{opacity:1;border:2px solid currentColor}
+.dchip.long{font-size:18px}
 .log{margin-top:12px;display:flex;flex-direction:column;font-size:14px}
 .log div{display:flex;justify-content:space-between;gap:10px;padding:5px 2px;border-bottom:1px solid var(--line)}
 .log span:last-child{color:var(--muted)}
@@ -106,7 +108,12 @@ input[type=text],select{background:var(--surface);border:1px solid var(--line);b
 .key:active{background:var(--surface-2)}
 .key small{position:absolute;top:4px;right:6px;font-family:var(--f-body);font-size:10px;font-weight:700;color:var(--muted);max-width:60%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .key.dim{color:var(--muted);font-weight:600}
-.key.sm{font-size:17px;min-height:46px}
+.key.sm{font-size:17px;min-height:46px;text-align:center;padding:2px 4px}
+.misses{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.extras.two{grid-template-columns:repeat(2,1fr)}
+.seg-p{text-align:center;font-size:14px;color:var(--ink);border-left:2px solid var(--line)}
+.seg .seg-tot{border-left:2px solid var(--line);font-weight:700}
+.seg th:first-child,.seg td:first-child{white-space:nowrap}
 .key.mul2.on{background:var(--green);color:#fff;border-color:var(--green)}
 .key.mul3.on{background:var(--red);color:#fff;border-color:var(--red)}
 .key.enter{background:var(--red);border-color:var(--red);color:#fff;font-size:20px}
@@ -262,7 +269,7 @@ const BOGEY = /* @__PURE__ */ new Set([159, 162, 163, 165, 166, 168, 169]);
 const NO_VISIT = /* @__PURE__ */ new Set([163, 166, 169, 172, 173, 175, 176, 178, 179]);
 const CR = [20, 19, 18, 17, 16, 15, 25];
 const dv = (d) => d[0] === 0 ? 0 : d[0] * d[1];
-const dlabel = (d) => d[0] === 0 ? "Miss" : d[0] === 25 ? d[1] === 2 ? "Bull" : "25" : ["", "", "D", "T"][d[1]] + d[0];
+const dlabel = (d) => d[0] === 0 ? d[2] === "d" ? "Miss dbl" : "Miss" : d[0] === 25 ? d[1] === 2 ? "Bull" : "25" : ["", "", "D", "T"][d[1]] + d[0];
 const dkey = (d) => d[0] === 0 ? "M" : d[0] === 25 ? d[1] === 2 ? "DB" : "SB" : ["", "S", "D", "T"][d[1]] + d[0];
 const f2 = (v) => isFinite(v) ? v.toFixed(2) : "\u2013";
 const f1 = (v) => isFinite(v) ? v.toFixed(1) : "\u2013";
@@ -983,7 +990,7 @@ function ensureNumbers() {
   });
 }
 function viewTrainingLive(m) {
-  const S = m.settings, st = trState(m), p = m.players[0], chips = '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>");
+  const S = m.settings, st = trState(m), p = m.players[0], chips = '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "").concat(m.pending[k] && m.pending[k][2] === "d" ? " long" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>");
   let big, lines = [], prog = 0, extra = "";
   if (S.drill === "rtc") {
     big = st.target;
@@ -1042,7 +1049,7 @@ function viewLive(m) {
       const routes = act && rem <= (S.doubleOut ? 170 : 180) ? checkoutRoutes(rem, left, S.doubleOut) : [];
       const setup = act && !routes.length && rem > 1 && rem <= 230 ? setupShot(rem, left, S.doubleOut) : null;
       const fr = (r) => r.map(dlabel).join(" \xB7 ");
-      return '<div class="pcard'.concat(act ? " act" : "", '"><div class="ph"><span class="pn">').concat(esc(nameOf(p, m)), '</span><span class="legs" title="Legs won">').concat(m.legs.filter((l) => l.winner === p).length, '</span></div>\n      <div class="rem">').concat(rem, '</div>\n      <div class="pm"><span>Avg ').concat(f1(avg[j]), "</span><span>").concat(st.darts[j] + (act ? m.pending.length : 0), " darts</span>").concat(lv ? "<span>Last ".concat(lv.bust ? "bust" : lv.score, "</span>") : "", "</div>\n      ").concat(routes.length ? '<div class="route">'.concat(fr(routes[0].r), "</div>").concat(routes[1] ? '<div class="route alt">or '.concat(fr(routes[1].r), "</div>") : "") : "", "\n      ").concat(setup ? '<div class="route setup"><span>Set up</span> '.concat(fr(setup.darts), " <span>leaves ").concat(setup.leave, "</span></div>") : "", "\n      ").concat(act && S.mode === "dart" ? '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>") : "", "\n      </div>");
+      return '<div class="pcard'.concat(act ? " act" : "", '"><div class="ph"><span class="pn">').concat(esc(nameOf(p, m)), '</span><span class="legs" title="Legs won">').concat(m.legs.filter((l) => l.winner === p).length, '</span></div>\n      <div class="rem">').concat(rem, '</div>\n      <div class="pm"><span>Avg ').concat(f1(avg[j]), "</span><span>").concat(st.darts[j] + (act ? m.pending.length : 0), " darts</span>").concat(lv ? "<span>Last ".concat(lv.bust ? "bust" : lv.score, "</span>") : "", "</div>\n      ").concat(routes.length ? '<div class="route">'.concat(fr(routes[0].r), "</div>").concat(routes[1] ? '<div class="route alt">or '.concat(fr(routes[1].r), "</div>") : "") : "", "\n      ").concat(setup ? '<div class="route setup"><span>Set up</span> '.concat(fr(setup.darts), " <span>leaves ").concat(setup.leave, "</span></div>") : "", "\n      ").concat(act && S.mode === "dart" ? '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "").concat(m.pending[k] && m.pending[k][2] === "d" ? " long" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>") : "", "\n      </div>");
     }).join(""), "</div>").concat(legLog(m));
     pad = S.mode === "dart" ? dartPad(m) : visitPad(m, st);
   } else if (m.game === "cricket") {
@@ -1058,11 +1065,11 @@ function viewLive(m) {
       return n ? k / n * 3 : NaN;
     });
     const glyph = (n) => ["", "/", "\u2715", "\u24CD"][Math.min(3, n)];
-    board = '<div class="panel tscroll"><table class="cr"><thead><tr><th></th>'.concat(P.map((p, j) => '<th class="'.concat(j === st.turn ? "act" : "", '"><div class="pn">').concat(esc(nameOf(p, m)), '</div><div class="pts">').concat(st.pts[j], "</div><div>Legs ").concat(m.legs.filter((l) => l.winner === p).length, " \xB7 MPR ").concat(f2(mpr[j]), "</div></th>")).join(""), "</tr></thead>\n    <tbody>").concat(CR.map((s) => '<tr class="'.concat(st.marks.every((mm) => mm[s] >= 3) ? "dead" : "", '"><th>').concat(s === 25 ? "Bull" : s, "</th>").concat(P.map((p, j) => '<td class="'.concat(j === st.turn ? "act" : "", '">').concat(glyph(st.marks[j][s]), "</td>")).join(""), "</tr>")).join(""), '</tbody></table>\n    <div class="dchips">').concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div></div>");
+    board = '<div class="panel tscroll"><table class="cr"><thead><tr><th></th>'.concat(P.map((p, j) => '<th class="'.concat(j === st.turn ? "act" : "", '"><div class="pn">').concat(esc(nameOf(p, m)), '</div><div class="pts">').concat(st.pts[j], "</div><div>Legs ").concat(m.legs.filter((l) => l.winner === p).length, " \xB7 MPR ").concat(f2(mpr[j]), "</div></th>")).join(""), "</tr></thead>\n    <tbody>").concat(CR.map((s) => '<tr class="'.concat(st.marks.every((mm) => mm[s] >= 3) ? "dead" : "", '"><th>').concat(s === 25 ? "Bull" : s, "</th>").concat(P.map((p, j) => '<td class="'.concat(j === st.turn ? "act" : "", '">').concat(glyph(st.marks[j][s]), "</td>")).join(""), "</tr>")).join(""), '</tbody></table>\n    <div class="dchips">').concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "").concat(m.pending[k] && m.pending[k][2] === "d" ? " long" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div></div>");
     pad = dartPad(m);
   } else {
     const st = kiState(m);
-    board = '<div class="pcards">'.concat(P.map((p, j) => '<div class="pcard'.concat(j === st.turn ? " act" : "").concat(st.lives[j] <= 0 ? " out" : "", '"><div class="ph"><span class="pn">').concat(esc(nameOf(p, m)), '</span><span class="legs">').concat(m.legs.filter((l) => l.winner === p).length, '</span></div>\n      <div class="rem">').concat(st.num[j], '</div>\n      <div class="lives">').concat(Array.from({ length: S.lives }, (_, k) => '<i class="'.concat(k < st.lives[j] ? "f" : "", '"></i>')).join(""), '</div>\n      <div class="pm">').concat(st.lives[j] <= 0 ? "<span>Out</span>" : st.killer[j] ? '<span class="badge">Killer</span>' : "<span>Needs D".concat(st.num[j], "</span>"), "</div>\n      ").concat(j === st.turn ? '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>") : "", "\n    </div>")).join(""), "</div>");
+    board = '<div class="pcards">'.concat(P.map((p, j) => '<div class="pcard'.concat(j === st.turn ? " act" : "").concat(st.lives[j] <= 0 ? " out" : "", '"><div class="ph"><span class="pn">').concat(esc(nameOf(p, m)), '</span><span class="legs">').concat(m.legs.filter((l) => l.winner === p).length, '</span></div>\n      <div class="rem">').concat(st.num[j], '</div>\n      <div class="lives">').concat(Array.from({ length: S.lives }, (_, k) => '<i class="'.concat(k < st.lives[j] ? "f" : "", '"></i>')).join(""), '</div>\n      <div class="pm">').concat(st.lives[j] <= 0 ? "<span>Out</span>" : st.killer[j] ? '<span class="badge">Killer</span>' : "<span>Needs D".concat(st.num[j], "</span>"), "</div>\n      ").concat(j === st.turn ? '<div class="dchips">'.concat([0, 1, 2].map((k) => '<span class="dchip'.concat(m.pending[k] ? " on" : "").concat(m.pending[k] && m.pending[k][2] === "d" ? " long" : "", '">').concat(m.pending[k] ? dlabel(m.pending[k]) : "", "</span>")).join(""), "</div>") : "", "\n    </div>")).join(""), "</div>");
     pad = dartPad(m);
   }
   const conf = ui.confirm === "abandon" ? '<div class="banner row" style="justify-content:space-between">Delete this match and its scores? <span class="row"><button class="btn danger" data-act="abandon">Delete match</button><button class="btn" data-act="noconfirm">Keep it</button></span></div>' : "";
@@ -1087,7 +1094,7 @@ function dartPad(m) {
   const owner = {};
   if (m.game === "killer") m.players.forEach((p) => owner[m.settings.numbers[p]] = nameOf(p, m));
   const dim = (n) => m.game === "cricket" && n < 15;
-  return '<div class="pad">\n    <div class="mults"><button class="key sm mul2'.concat(ui.mult === 2 ? " on" : "", '" data-act="mult" data-v="2">Double</button><button class="key sm mul3').concat(ui.mult === 3 ? " on" : "", '" data-act="mult" data-v="3">Treble</button><button class="key sm" data-act="undo">Undo</button></div>\n    <div class="nums">').concat(Array.from({ length: 20 }, (_, i) => i + 1).map((n) => '<button class="key'.concat(dim(n) ? " dim" : "", '" data-act="dart" data-v="').concat(n, '">').concat(n).concat(owner[n] ? "<small>".concat(esc(owner[n]), "</small>") : "", "</button>")).join(""), '</div>\n    <div class="extras"><button class="key sm" data-act="dart" data-v="25">25</button><button class="key sm" data-act="dart" data-v="50">Bull</button><button class="key sm" data-act="dart" data-v="0">Miss</button></div>\n  </div>');
+  return '<div class="pad">\n    <div class="mults"><button class="key sm mul2'.concat(ui.mult === 2 ? " on" : "", '" data-act="mult" data-v="2">Double</button><button class="key sm mul3').concat(ui.mult === 3 ? " on" : "", '" data-act="mult" data-v="3">Treble</button><button class="key sm" data-act="undo">Undo</button></div>\n    <div class="nums">').concat(Array.from({ length: 20 }, (_, i) => i + 1).map((n) => '<button class="key'.concat(dim(n) ? " dim" : "", '" data-act="dart" data-v="').concat(n, '">').concat(n).concat(owner[n] ? "<small>".concat(esc(owner[n]), "</small>") : "", "</button>")).join(""), '</div>\n    <div class="extras').concat(m.game === "cricket" ? "" : " two", '"><button class="key sm" data-act="dart" data-v="25">25</button><button class="key sm" data-act="dart" data-v="50">Bull</button>').concat(m.game === "cricket" ? '<button class="key sm" data-act="dart" data-v="0">Miss</button>' : "", "</div>\n    ").concat(m.game === "cricket" ? "" : '<div class="misses"><button class="key sm" data-act="dart" data-v="0">Miss \u2013 general play</button><button class="key sm" data-act="dart" data-v="-1">Miss \u2013 going for double</button></div>', "\n  </div>");
 }
 function viewResult(m) {
   if (m.game === "training") return viewTrainingResult(m);
@@ -1109,13 +1116,14 @@ function viewResult(m) {
   return '<div class="stack"><div class="panel result stack"><div class="eyebrow">'.concat(esc(gameLabel(m)), '</div><div class="w">').concat(esc(nameOf(m.winner, m)), ' wins</div><div class="score">').concat(P.map((p) => "".concat(esc(nameOf(p, m)), " ").concat(m.legs.filter((l) => l.winner === p).length)).join(" \u2013 "), '</div>\n  <div class="row" style="justify-content:center"><button class="btn primary big" data-act="rematch">Rematch</button><button class="btn" data-act="leave">New match</button><button class="btn" data-act="undo">Undo last dart</button></div></div>\n  <div class="panel tscroll">').concat(rows, "</div></div>");
 }
 function newAcc() {
-  const g = () => ({ seg: {}, n: 0 });
+  const g = () => ({ seg: {}, n: 0, ms: { g: 0, d: 0, u: 0 } });
   return { seg: {}, n: 0, miss: 0, mult: [0, 0, 0, 0], sc: { n: 0, T20: 0, S20: 0, b1: 0, b5: 0, other: 0 }, dbl: {}, dA: 0, dH: 0, pos: { all: g(), v1: g(), v2: g(), v3: g(), l1: g() } };
 }
 function accAdd(A, d, j, firstOfLeg) {
   const put = (o, k2) => {
     o.n++;
     o.seg[k2] = (o.seg[k2] || 0) + 1;
+    if (k2 === "M") o.ms[d[2] || "u"]++;
   }, k = dkey(d);
   A.n++;
   A.seg[k] = (A.seg[k] || 0) + 1;
@@ -1364,7 +1372,7 @@ function hitTest(x, y) {
   const r = Math.hypot(x, y);
   if (r <= 6.35) return [25, 2];
   if (r <= 15.9) return [25, 1];
-  if (r > 170) return [0, 0];
+  if (r > 170) return [0, 0, "g"];
   let a = Math.atan2(x, y) * 180 / Math.PI;
   if (a < 0) a += 360;
   const n = ORDER[Math.round(a / 18) % 20];
@@ -1685,7 +1693,7 @@ function hitsTable(G, label) {
   const byNum = ui.sf.hsort === "num";
   if (!byNum) rows.sort((a, b) => b.tot - a.tot);
   const max = Math.max(1, ...rows.map((r) => r.tot)), miss = s.M || 0;
-  return '<div class="row" style="justify-content:space-between"><div class="eyebrow">'.concat(label, " \xB7 ").concat(G.n, ' darts</div>\n    <div class="opts"><button class="opt').concat(byNum ? "" : " on", '" data-act="hsort" data-v="hits">Most hit</button><button class="opt').concat(byNum ? " on" : "", '" data-act="hsort" data-v="num">By number</button></div></div>\n  <div class="tscroll"><table class="hits"><thead><tr><th>Number</th><th class="num">Single</th><th class="num">Double</th><th class="num">Treble</th><th class="num">Total</th><th class="num">Share</th><th></th></tr></thead><tbody>\n  ').concat(rows.filter((r) => byNum || r.tot).map((r) => "<tr><td><b>".concat(r.l, '</b></td><td class="num">').concat(r.S || "\xB7", '</td><td class="num">').concat(r.D || "\xB7", '</td><td class="num">').concat(r.T == null ? "" : r.T || "\xB7", '</td><td class="num"><b>').concat(r.tot, '</b></td><td class="num">').concat(pct(r.tot, G.n), '</td><td style="width:22%"><div class="meter"><b style="width:').concat(r.tot / max * 100, '%;background:var(--heat)"></b></div></td></tr>')).join(""), "\n  ").concat(miss ? '<tr><td>Off the board</td><td></td><td></td><td></td><td class="num"><b>'.concat(miss, '</b></td><td class="num">').concat(pct(miss, G.n), "</td><td></td></tr>") : "", '\n  </tbody></table></div>\n  <p class="note">Tap any part of the board to see its count.</p>');
+  return '<div class="row" style="justify-content:space-between"><div class="eyebrow">'.concat(label, " \xB7 ").concat(G.n, ' darts</div>\n    <div class="opts"><button class="opt').concat(byNum ? "" : " on", '" data-act="hsort" data-v="hits">Most hit</button><button class="opt').concat(byNum ? " on" : "", '" data-act="hsort" data-v="num">By number</button></div></div>\n  <div class="tscroll"><table class="hits"><thead><tr><th>Number</th><th class="num">Single</th><th class="num">Double</th><th class="num">Treble</th><th class="num">Total</th><th class="num">Share</th><th></th></tr></thead><tbody>\n  ').concat(rows.filter((r) => byNum || r.tot).map((r) => "<tr><td><b>".concat(r.l, '</b></td><td class="num">').concat(r.S || "\xB7", '</td><td class="num">').concat(r.D || "\xB7", '</td><td class="num">').concat(r.T == null ? "" : r.T || "\xB7", '</td><td class="num"><b>').concat(r.tot, '</b></td><td class="num">').concat(pct(r.tot, G.n), '</td><td style="width:22%"><div class="meter"><b style="width:').concat(r.tot / max * 100, '%;background:var(--heat)"></b></div></td></tr>')).join(""), "\n  ").concat([["g", "Miss \u2013 general play"], ["d", "Miss \u2013 going for double"], ["u", "Miss (unspecified)"]].filter((x) => G.ms[x[0]]).map(([k, l]) => "<tr><td>".concat(l, '</td><td></td><td></td><td></td><td class="num"><b>').concat(G.ms[k], '</b></td><td class="num">').concat(pct(G.ms[k], G.n), "</td><td></td></tr>")).join(""), '\n  </tbody></table></div>\n  <p class="note">Tap any part of the board to see its count.</p>');
 }
 function statsX01(S, pname) {
   var _a2;
@@ -1784,7 +1792,23 @@ function compareSection(a, b, fm, game) {
   return '<div class="panel stack"><div class="vshead"><div><div class="pn">'.concat(esc(na), '</div><div class="vsbig">').concat(wa, '</div></div><div class="vsmid">').concat(game === "killer" ? "games" : "matches", " won<br>").concat(shared.length, ' played together</div><div style="text-align:right"><div class="pn">').concat(esc(nb), '</div><div class="vsbig">').concat(wb, "</div></div></div>\n  ").concat(wa + wb ? '<div class="split"><b style="width:'.concat(wa / (wa + wb) * 100, '%"></b></div>') : "", '\n  <div class="tscroll"><table class="cmp"><thead><tr><th class="num">').concat(esc(na), '</th><th style="text-align:center">In matches against each other</th><th>').concat(esc(nb), "</th></tr></thead><tbody>").concat(rows.map(([l, x, y, dir, fmt]) => '<tr><td class="num'.concat(better(x, y, dir) ? " better" : "", '">').concat(fmt(x), '</td><td style="text-align:center" class="note">').concat(l, '</td><td class="').concat(better(y, x, dir) ? "better" : "", '">').concat(fmt(y), "</td></tr>")).join(""), '</tbody></table></div>\n  <div><div class="eyebrow" style="margin-bottom:6px">Recent meetings</div><div class="log">').concat(recent.map((m) => "<div><span>".concat(fmtDT(m.startedAt)).concat(m.status !== "done" ? " \xB7 unfinished" : "", '</span><span class="score" style="font-size:17px">').concat([a, b].map((p) => {
     const w = m.legs.filter((l) => l.winner === p).length;
     return p === m.winner ? "<b>".concat(w, "</b>") : w;
-  }).join(" \u2013 "), "</span></div>")).join(""), "</div></div>\n  </div>");
+  }).join(" \u2013 "), "</span></div>")).join(""), "</div></div>\n  </div>").concat(segmentH2H(A.A.pos.all, B.A.pos.all, na, nb));
+}
+function segmentH2H(G1, G2, na, nb) {
+  if (!G1.n && !G2.n) return '<div class="panel"><h3>Segments head to head</h3><p class="note">No dart-by-dart data in these matches. Use Dart entry during a match to record which segment each dart hits.</p></div>';
+  const line = (s, n) => {
+    const S = s["S" + n] || 0, D = s["D" + n] || 0, T = s["T" + n] || 0;
+    return { S, D, T, tot: S + D + T };
+  };
+  const rows = Array.from({ length: 20 }, (_, i) => i + 1).map((n) => ({ l: String(n), a: line(G1.seg, n), b: line(G2.seg, n) }));
+  const bull = (s) => ({ S: s.SB || 0, D: s.DB || 0, T: null, tot: (s.SB || 0) + (s.DB || 0) });
+  rows.push({ l: "Bull", a: bull(G1.seg), b: bull(G2.seg) });
+  const byNum = ui.sf.hsort === "num";
+  if (byNum) rows.reverse();
+  else rows.sort((x, y) => y.a.tot + y.b.tot - (x.a.tot + x.b.tot));
+  const cells = (o, other) => '<td class="num seg-tot'.concat(o.tot > other.tot ? " better" : "", '">').concat(o.tot, '</td><td class="num">').concat(o.T == null ? "" : o.T || "\xB7", '</td><td class="num">').concat(o.D || "\xB7", '</td><td class="num">').concat(o.S || "\xB7", "</td>");
+  const missRows = [["g", "Miss \u2013 general play"], ["d", "Miss \u2013 going for double"], ["u", "Miss (unspecified)"]].filter((x) => G1.ms[x[0]] || G2.ms[x[0]]);
+  return '<div class="panel stack"><div class="row" style="justify-content:space-between"><h3>Segments head to head</h3>\n    <div class="opts"><button class="opt'.concat(byNum ? "" : " on", '" data-act="hsort" data-v="hits">Most hit</button><button class="opt').concat(byNum ? " on" : "", '" data-act="hsort" data-v="num">By number</button></div></div>\n  <p class="note">Darts landing in each number: the total, then how many were trebles (T), doubles (D) and singles (S). Only dart-by-dart entry counts. ').concat(esc(na), " has ").concat(G1.n, " darts recorded and ").concat(esc(nb), " has ").concat(G2.n, ', so compare totals with that in mind.</p>\n  <div class="tscroll"><table class="seg"><thead><tr><th></th><th colspan="4" class="seg-p">').concat(esc(na), '</th><th colspan="4" class="seg-p">').concat(esc(nb), '</th></tr>\n  <tr><th>Number</th><th class="num seg-tot">Total</th><th class="num">T</th><th class="num">D</th><th class="num">S</th><th class="num seg-tot">Total</th><th class="num">T</th><th class="num">D</th><th class="num">S</th></tr></thead><tbody>\n  ').concat(rows.filter((r) => byNum || r.a.tot || r.b.tot).map((r) => "<tr><td><b>".concat(r.l, "</b></td>").concat(cells(r.a, r.b)).concat(cells(r.b, r.a), "</tr>")).join(""), "\n  ").concat(missRows.map(([k, l]) => "<tr><td>".concat(l, '</td><td class="num seg-tot">').concat(G1.ms[k], '</td><td colspan="3"></td><td class="num seg-tot">').concat(G2.ms[k], '</td><td colspan="3"></td></tr>')).join(""), "\n  </tbody></table></div></div>");
 }
 function rivalsSection(fm, game) {
   const done = fm.filter((m) => m.legs.some((l) => l.winner));
@@ -1987,7 +2011,7 @@ const ACTS = {
     render();
   },
   dart: (d) => {
-    const v = +d.v, dd = v === 0 ? [0, 0] : v === 25 ? [25, 1] : v === 50 ? [25, 2] : [v, ui.mult];
+    const v = +d.v, dd = v === 0 ? [0, 0, "g"] : v === -1 ? [0, 0, "d"] : v === 25 ? [25, 1] : v === 50 ? [25, 2] : [v, ui.mult];
     ui.mult = 1;
     addDart(live, dd);
     changed();
